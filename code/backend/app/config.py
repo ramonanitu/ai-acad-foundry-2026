@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # --- retrieval / generation defaults ------------------------------------
     top_k: int = 4
+    min_score: float = 0.4                 # hits below this cosine score are dropped, not guessed at
     llm_temperature: float = 0.2
     llm_max_tokens: int = 2500   # reasoning models spend part of this budget thinking
 

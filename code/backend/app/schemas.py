@@ -79,6 +79,13 @@ class SearchRequest(BaseModel):
 
     query: str = Field(..., min_length=1)
     top_k: Optional[int] = Field(None, ge=1, le=50)
+    min_score: Optional[float] = Field(
+        None, ge=0, le=1, description="Drop hits below this cosine score. Defaults to MIN_SCORE from .env."
+    )
+    filters: Optional[dict] = Field(
+        None, description="Exact-match metadata filters, e.g. {'product': 'complaints', "
+                          "'status': 'current'} — keys must exist in a chunk's stored metadata."
+    )
 
 
 class SearchHit(BaseModel):
@@ -96,6 +103,9 @@ class SearchResponse(BaseModel):
     top_k: int
     embedding_model: dict
     query_embedding_preview: list[float]
+    min_score_used: float = Field(description="The floor actually applied — request value, or MIN_SCORE from .env")
+    filters_used: Optional[dict] = None
+    dropped_below_threshold: int = Field(0, description="Hits Qdrant returned that scored below min_score_used")
     hits: list[SearchHit]
 
 
@@ -111,6 +121,12 @@ class AskRequest(BaseModel):
     question: str = Field(..., min_length=1)
     use_rag: bool = Field(True, description="false = plain LLM; true = retrieve then augment")
     top_k: Optional[int] = Field(None, ge=1, le=50)
+    min_score: Optional[float] = Field(
+        None, ge=0, le=1, description="Drop retrieved hits below this cosine score. Defaults to MIN_SCORE from .env."
+    )
+    filters: Optional[dict] = Field(
+        None, description="Exact-match metadata filters applied to retrieval, e.g. {'status': 'current'}"
+    )
     temperature: Optional[float] = Field(None, ge=0, le=2)
     agent: Optional[str] = Field(
         None,
@@ -228,6 +244,7 @@ class AskResponse(BaseModel):
     system_prompt: str = Field(description="The system message actually sent")
     prompt_sent: str = Field(description="The exact user prompt sent to the model — compare with/without RAG")
     retrieved: list[SearchHit] = Field(default_factory=list)
+    dropped_below_threshold: int = Field(0, description="Retrieved hits dropped for scoring below min_score")
     usage: Optional[Usage] = None
 
 

@@ -101,3 +101,48 @@ out in the assignment's troubleshooting table — now gone.
   would need a delete-by-source-prefix step before re-upserting to close fully.
 - Metadata is stored and returned, but nothing yet *filters* on it — that's Part 5
   (metadata filters), which this work is a direct prerequisite for.
+
+## Part 5 — retrieval
+
+**Two improvements implemented**, both in `app/main.py` (`/search`, `/ask`) and
+`app/vectorstore.py` (`search()`), per the assignment's own file map:
+
+1. **Score threshold** (`app/main.py`). `/search` and `/ask` now drop any hit
+   scoring below `min_score` (request field, defaults to `MIN_SCORE=0.4` in
+   `.env`) before it reaches the model. If every candidate is dropped, `/ask`
+   short-circuits and returns a fixed refusal **without calling the LLM at all**
+   (`provider: "none"`, `0` tokens) — the honesty guarantee is mechanical, not
+   dependent on the model choosing to say "I don't know."
+2. **Metadata filters** (`app/vectorstore.py` → `search()`). `filters` (a
+   request field, e.g. `{"status": "current"}`) becomes a Qdrant `Filter` with
+   exact-match `FieldCondition`s, applied at the vector-search stage — this is
+   what the Part 4 metadata work was for.
+
+### One sentence each + a demonstrating question
+
+- **Score threshold** fixes retrieval always returning *something*, even for a
+  question the corpus has nothing to do with. Question: *"What is the weather
+  forecast for Bucharest tomorrow?"* — all 5 candidate hits scored below 0.4;
+  `/ask` returned "Nothing in the knowledge base scores as relevant enough..."
+  with `dropped_below_threshold: 4`, `usage: 0/0` — no model call made. A
+  legitimate question (the goodwill-cap one from Part 4) was checked as a
+  regression: `dropped_below_threshold: 0`, answer unaffected.
+- **Metadata filters** fix the exact near-tie found in Part 4: *"How long do I
+  have to wait before I can escalate my complaint to CSALB?"* without a filter,
+  `complaints-ombudsman-2026` (current, 0.7686) and `complaints-ombudsman-2025`
+  (superseded, 0.7493) came back **0.02 apart** — a naive top-k has no way to
+  know one is stale. Adding `filters: {"status": "current"}` removes the 2025
+  document from the candidate set entirely; the top-3 becomes exclusively 2026
+  documents, top hit unchanged at 0.7686 but with zero risk of citing the wrong
+  year.
+
+### Note on Part 4's open item
+
+Re-running the goodwill-cap question through `/ask` (default `top_k=4`, not the
+`top_k=3` used for the raw `/search` comparison in Part 4) *did* surface
+`complaints-goodwill-amounts.md` in 4th place (score 0.6054) and the model cited
+it correctly (`[4]`, "3% ... capped at 5,000 lei"). So the Part 4 finding was
+real but `top_k`-sensitive — one more argument for re-ranking or chunk-context
+prefixing (Part 5 improvement #6 / #5) as the next thing to try, since relying on
+a slightly larger `top_k` to rescue a weakly-scored but important chunk is
+fragile, not a fix.

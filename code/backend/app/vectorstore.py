@@ -96,9 +96,20 @@ class VectorStore:
         )
         return ids
 
-    def search(self, vector: list[float], top_k: int) -> list[dict]:
+    def search(self, vector: list[float], top_k: int, filters: dict | None = None) -> list[dict]:
+        """Nearest-neighbour search, optionally restricted by exact-match payload
+        filters (e.g. `{"product": "complaints", "status": "current"}`) — what
+        stops the 2025 fee list from competing with the 2026 one, once the caller
+        knows which one it wants."""
+        query_filter = None
+        if filters:
+            query_filter = models.Filter(must=[
+                models.FieldCondition(key=key, match=models.MatchValue(value=value))
+                for key, value in filters.items()
+            ])
         hits = self.client.query_points(
-            collection_name=self.collection, query=vector, limit=top_k, with_payload=True
+            collection_name=self.collection, query=vector, limit=top_k,
+            query_filter=query_filter, with_payload=True,
         ).points
         results = []
         for h in hits:

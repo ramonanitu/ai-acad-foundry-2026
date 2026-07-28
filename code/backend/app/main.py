@@ -94,6 +94,20 @@ def _embed(texts: list[str]) -> list[list[float]]:
         )
 
 
+def _agent_info(persona, hosted_only: dict | None, mode: str) -> AgentInfo:
+    if persona is not None:
+        return AgentInfo(
+            name=persona.name, display_name=persona.display_name,
+            description=persona.description, mode=mode,
+            temperature=persona.temperature, style_rules=persona.style_rules,
+        )
+    return AgentInfo(
+        name=hosted_only["name"], display_name=hosted_only["name"],
+        description=hosted_only.get("description") or "Hosted in Foundry — no local persona file.",
+        mode=mode,
+    )
+
+
 def _require_qdrant() -> None:
     if not store.ping():
         raise HTTPException(
@@ -294,17 +308,28 @@ def collection_reset() -> dict:
 @app.post("/search", response_model=SearchResponse, tags=["3 · retrieval"])
 def search(req: SearchRequest) -> SearchResponse:
     """Embed the query, return the nearest chunks with their cosine similarity
-    scores — retrieval with the curtain open."""
+    scores — retrieval with the curtain open.
+
+    Two honesty checks beyond plain top-k: `min_score` drops hits too weak to
+    trust (cosine ordering always returns *something*, even for an off-topic
+    question), and `filters` restricts to chunks whose metadata matches exactly
+    — e.g. `{"status": "current"}` to stop a superseded document competing with
+    the one that replaced it.
+    """
     _require_qdrant()
     if not store.info()["exists"]:
         raise HTTPException(status_code=404, detail="Collection is empty — POST /ingest first.")
     top_k = req.top_k or settings.top_k
+    min_score = req.min_score if req.min_score is not None else settings.min_score
     qvec = _embed([req.query])[0]
-    hits = store.search(qvec, top_k)
+    hits = store.search(qvec, top_k, req.filters)
+    kept = [h for h in hits if h["score"] >= min_score]
     return SearchResponse(
         query=req.query, top_k=top_k, embedding_model=_embedder().describe(),
         query_embedding_preview=[round(x, 5) for x in qvec[:8]],
-        hits=[SearchHit(**h) for h in hits],
+        min_score_used=min_score, filters_used=req.filters,
+        dropped_below_threshold=len(hits) - len(kept),
+        hits=[SearchHit(**h) for h in kept],
     )
 
 
@@ -341,7 +366,8 @@ def ask(req: AskRequest) -> AskResponse:
         if not hosted_only:
             raise HTTPException(status_code=404, detail=str(e))
 
-    # ---- retrieval (unchanged behaviour, now feeding the agent) -------------
+    # ---- retrieval (now score-floored and metadata-filterable) --------------
+    dropped = 0
     if req.use_rag:
         _require_qdrant()
         if not store.info()["exists"]:
@@ -349,8 +375,27 @@ def ask(req: AskRequest) -> AskResponse:
                                 detail="use_rag=true but the collection is empty — POST /ingest first, "
                                        "or set use_rag=false for a plain LLM answer.")
         top_k = req.top_k or settings.top_k
+        min_score = req.min_score if req.min_score is not None else settings.min_score
         qvec = _embed([req.question])[0]
-        retrieved = [SearchHit(**h) for h in store.search(qvec, top_k)]
+        raw_hits = store.search(qvec, top_k, req.filters)
+        kept = [h for h in raw_hits if h["score"] >= min_score]
+        dropped = len(raw_hits) - len(kept)
+        retrieved = [SearchHit(**h) for h in kept]
+
+        # Every candidate scored below the floor — say so instead of asking the
+        # model to answer from context that isn't actually relevant.
+        if raw_hits and not retrieved:
+            mode = mode_requested
+            info = _agent_info(persona, hosted_only, mode)
+            return AskResponse(
+                answer="Nothing in the knowledge base scores as relevant enough to answer this "
+                       f"confidently (best match was below the {min_score:.2f} similarity floor). "
+                       "Rather than guess, I'm saying so directly.",
+                augmented=True, provider="none", model="none", agent=info,
+                system_prompt="(not sent — no retrieved chunk cleared min_score)",
+                prompt_sent=req.question, retrieved=[], dropped_below_threshold=dropped,
+                usage=Usage(prompt_tokens=0, completion_tokens=0),
+            )
 
     chunks = [h.model_dump() for h in retrieved]
     mode = mode_requested
@@ -369,15 +414,7 @@ def ask(req: AskRequest) -> AskResponse:
         raise HTTPException(status_code=502,
                             detail=f"Agent run failed (mode={mode}, provider={settings.llm_provider}): {e}")
 
-    info = AgentInfo(
-        name=persona.name, display_name=persona.display_name,
-        description=persona.description, mode=reply.mode,
-        temperature=persona.temperature, style_rules=persona.style_rules,
-    ) if persona is not None else AgentInfo(
-        name=hosted_only["name"], display_name=hosted_only["name"],
-        description=hosted_only.get("description") or "Hosted in Foundry — no local persona file.",
-        mode=reply.mode,
-    )
+    info = _agent_info(persona, hosted_only, reply.mode)
 
     return AskResponse(
         answer=reply.text,
@@ -388,6 +425,7 @@ def ask(req: AskRequest) -> AskResponse:
         system_prompt=reply.system_prompt,
         prompt_sent=reply.prompt_sent,
         retrieved=retrieved,
+        dropped_below_threshold=dropped,
         usage=Usage(prompt_tokens=reply.prompt_tokens, completion_tokens=reply.completion_tokens),
     )
 
