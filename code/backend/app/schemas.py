@@ -52,6 +52,12 @@ class IngestRequest(ChunkRequest):
     }]}}
 
     source: Optional[str] = Field(None, description="Label stored with every chunk (e.g. 'cards-faq')")
+    metadata: Optional[dict] = Field(
+        None, description="Extra fields stored on every chunk's payload — e.g. "
+                          "{'title': ..., 'product': ..., 'effective': ..., 'version': ...} "
+                          "from a document's frontmatter. Merged into the payload; reserved "
+                          "keys (text, index, strategy, source, ingested_at) always win."
+    )
 
 
 class IngestResponse(BaseModel):
@@ -82,6 +88,7 @@ class SearchHit(BaseModel):
     strategy: Optional[str] = None
     source: Optional[str] = None
     id: str
+    metadata: dict = Field(default_factory=dict, description="Non-reserved payload fields, e.g. title/product/effective/version")
 
 
 class SearchResponse(BaseModel):

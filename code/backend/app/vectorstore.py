@@ -15,6 +15,18 @@ from qdrant_client import QdrantClient, models
 from .config import settings
 
 
+# Fixed namespace so uuid5(NAMESPACE, seed) is stable across processes and runs.
+_ID_NAMESPACE = uuid.UUID("7b3b8f2e-6b0a-4e9a-9c2d-2f6a2b7d9a10")
+
+# Payload keys the store itself manages — never overwritten by caller-supplied metadata.
+_RESERVED_PAYLOAD_KEYS = {"text", "index", "strategy", "source", "ingested_at"}
+
+
+def _stable_id(source: str | None, index: int, text: str) -> str:
+    seed = f"{source}::{index}" if source else f"adhoc::{index}::{text}"
+    return str(uuid.uuid5(_ID_NAMESPACE, seed))
+
+
 class DimensionMismatch(Exception):
     def __init__(self, existing: int, incoming: int) -> None:
         self.existing = existing
@@ -51,9 +63,19 @@ class VectorStore:
 
     # --- data ----------------------------------------------------------------
     def upsert(self, chunks: list[str], vectors: list[list[float]], strategy: str,
-               source: str | None) -> list[str]:
-        ids = [str(uuid.uuid4()) for _ in chunks]
+               source: str | None, metadata: dict | None = None) -> list[str]:
+        """Upsert chunks with **stable, deterministic ids**.
+
+        The id is derived from `source` + chunk index (falling back to a hash of
+        the chunk text itself when no source is given, e.g. ad-hoc /ingest calls
+        from the Postman collection or the demo UI). Re-ingesting the same
+        `source` therefore *replaces* its previous chunks in place instead of
+        piling up a fresh UUID per call — the duplication bug the naive
+        `uuid.uuid4()` id had.
+        """
+        ids = [_stable_id(source, i, text) for i, text in enumerate(chunks)]
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        clean_metadata = {k: v for k, v in (metadata or {}).items() if k not in _RESERVED_PAYLOAD_KEYS}
         self.client.upsert(
             collection_name=self.collection,
             points=[
@@ -61,6 +83,7 @@ class VectorStore:
                     id=pid,
                     vector=vec,
                     payload={
+                        **clean_metadata,
                         "text": text,
                         "index": i,
                         "strategy": strategy,
@@ -77,17 +100,19 @@ class VectorStore:
         hits = self.client.query_points(
             collection_name=self.collection, query=vector, limit=top_k, with_payload=True
         ).points
-        return [
-            {
+        results = []
+        for h in hits:
+            payload = h.payload or {}
+            results.append({
                 "id": str(h.id),
                 "score": round(float(h.score), 4),
-                "text": (h.payload or {}).get("text", ""),
-                "index": (h.payload or {}).get("index"),
-                "strategy": (h.payload or {}).get("strategy"),
-                "source": (h.payload or {}).get("source"),
-            }
-            for h in hits
-        ]
+                "text": payload.get("text", ""),
+                "index": payload.get("index"),
+                "strategy": payload.get("strategy"),
+                "source": payload.get("source"),
+                "metadata": {k: v for k, v in payload.items() if k not in _RESERVED_PAYLOAD_KEYS},
+            })
+        return results
 
     # --- introspection --------------------------------------------------------
     def info(self) -> dict:
