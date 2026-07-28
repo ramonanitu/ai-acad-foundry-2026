@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/chunk"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "text": "{{sampleText}}",
+      "strategy": "sentence",
+      "sentences_per_chunk": 3
+    }
+order: 2000

@@ -1,0 +1,13 @@
+$kind: http-request
+description: "The naive scraper on an easy page: no warnings."
+url: "{{baseUrl}}/tools/web-fetch"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "url": "https://example.com"
+    }
+order: 1000

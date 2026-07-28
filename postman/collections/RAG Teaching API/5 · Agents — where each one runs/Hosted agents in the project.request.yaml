@@ -1,0 +1,5 @@
+$kind: http-request
+description: What actually exists in Foundry, whatever created it — scripts, SDK or portal.
+url: "{{baseUrl}}/agents/hosted"
+method: GET
+order: 4000

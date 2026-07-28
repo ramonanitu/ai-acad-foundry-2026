@@ -1,0 +1,13 @@
+$kind: http-request
+description: "Needs an Azure Speech resource: AZURE_SPEECH_KEY and AZURE_SPEECH_REGION. Use Postman's Send and Download to save the audio."
+url: "{{baseUrl}}/tools/speak"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "text": "Your card was blocked after three failed PIN attempts."
+    }
+order: 3000

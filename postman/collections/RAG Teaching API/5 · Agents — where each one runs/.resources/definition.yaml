@@ -1,0 +1,3 @@
+$kind: collection
+description: "Personas are JSON files; some also exist as hosted agents in Foundry. `runs_on` tells you which: local, both, foundry, or unknown."
+order: 6000

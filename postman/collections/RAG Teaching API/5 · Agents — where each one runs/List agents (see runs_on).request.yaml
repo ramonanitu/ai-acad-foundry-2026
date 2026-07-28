@@ -1,0 +1,5 @@
+$kind: http-request
+description: Every agent and where it can run. Also reports whether the Agent Service could be queried at all — under key auth it cannot, so state is 'unknown'.
+url: "{{baseUrl}}/agents"
+method: GET
+order: 1000

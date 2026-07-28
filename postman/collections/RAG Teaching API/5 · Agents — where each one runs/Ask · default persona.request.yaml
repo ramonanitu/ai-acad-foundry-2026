@@ -1,0 +1,16 @@
+$kind: http-request
+description: The professional baseline voice.
+url: "{{baseUrl}}/ask"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "question": "What fee applies to early mortgage repayment?",
+      "use_rag": true,
+      "top_k": 2,
+      "agent": "default"
+    }
+order: 6000

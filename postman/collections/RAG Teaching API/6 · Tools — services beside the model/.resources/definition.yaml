@@ -1,0 +1,3 @@
+$kind: collection
+description: The capabilities an agent can call, each a separate service.
+order: 7000

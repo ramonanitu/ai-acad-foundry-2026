@@ -1,14 +1,961 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Libra Assist — console</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libra Assist — Admin Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:            #12141a;
+    --panel:         #1a1d25;
+    --panel-raised:  #20242e;
+    --border:        #2a2e3a;
+    --border-light:  #363b4a;
+    --text:          #e7e9ee;
+    --text-dim:      #8b8fa3;
+    --text-faint:    #5a5f70;
+    --accent:        #5eead4;
+    --accent-dim:    #2a9d8f33;
+    --ok:            #5eead4;
+    --warn:          #f5b942;
+    --err:           #f5626b;
+    --err-bg:        #f5626b14;
+    --radius:        6px;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.5;
+    min-height:100vh;
+  }
+
+  .topbar{
+    position:sticky; top:0; z-index:10;
+    display:flex; align-items:center; gap:16px;
+    padding:14px 24px;
+    background:rgba(18,20,26,0.92);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar .brand{
+    display:flex; align-items:center; gap:10px;
+    font-weight:700; font-size:15px; letter-spacing:0.2px;
+  }
+  .brand .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-dim);
+  }
+  .brand .sub{
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+    font-weight:500;
+  }
+  .topbar .spacer{ flex:1; }
+  .apibase{
+    display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:12px; color:var(--text-dim);
+  }
+  .apibase input{
+    background:var(--panel-raised);
+    border:1px solid var(--border-light);
+    color:var(--text);
+    font-family:var(--mono); font-size:12px;
+    padding:6px 10px; border-radius:5px;
+    width:220px;
+  }
+  .apibase input:focus{ outline:none; border-color:var(--accent); }
+
+  .wrap{
+    max-width:980px;
+    margin:0 auto;
+    padding:28px 24px 80px;
+    display:flex; flex-direction:column; gap:18px;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .panel-head{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 18px;
+    border-bottom:1px solid var(--border);
+    cursor:pointer;
+    user-select:none;
+  }
+  .panel-head:hover{ background:var(--panel-raised); }
+  .endpoint-tag{
+    font-family:var(--mono); font-size:11px; font-weight:600;
+    padding:3px 8px; border-radius:4px;
+    letter-spacing:0.3px;
+  }
+  .endpoint-tag.get{ background:#5eead41a; color:#5eead4; }
+  .endpoint-tag.post{ background:#f5b9421a; color:#f5b942; }
+  .endpoint-tag.delete{ background:#f5626b1a; color:#f5626b; }
+  .panel-title{ font-weight:600; font-size:14px; }
+  .panel-desc{ font-size:12px; color:var(--text-faint); margin-left:auto; padding-right:4px; }
+  .chev{ color:var(--text-faint); font-size:12px; transition:transform 0.15s; }
+  .panel.collapsed .chev{ transform:rotate(-90deg); }
+  .panel-body{ padding:18px; display:flex; flex-direction:column; gap:14px; }
+  .panel.collapsed .panel-body{ display:none; }
+
+  label{ font-size:12px; color:var(--text-dim); font-weight:500; display:block; margin-bottom:6px; }
+  textarea, select, input[type=text], input[type=number]{
+    width:100%;
+    background:var(--panel-raised);
+    border:1px solid var(--border-light);
+    color:var(--text);
+    border-radius:5px;
+    padding:10px 12px;
+    font-family:var(--sans); font-size:13px;
+    resize:vertical;
+  }
+  textarea.mono, .jsonbox, pre{
+    font-family:var(--mono); font-size:12.5px;
+  }
+  textarea:focus, select:focus, input:focus{ outline:none; border-color:var(--accent); }
+  .row{ display:flex; gap:14px; flex-wrap:wrap; }
+  .row > div{ flex:1; min-width:160px; }
+  .field-sm{ max-width:140px; }
+
+  .actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  button{
+    font-family:var(--sans); font-weight:600; font-size:13px;
+    padding:9px 16px;
+    border-radius:5px; border:1px solid var(--border-light);
+    background:var(--panel-raised); color:var(--text);
+    cursor:pointer;
+    transition:border-color 0.15s, background 0.15s;
+  }
+  button:hover{ border-color:var(--accent); }
+  button.primary{
+    background:var(--accent); color:#0b1512; border-color:var(--accent);
+  }
+  button.primary:hover{ filter:brightness(1.08); }
+  button.danger{ color:var(--err); border-color:#f5626b40; }
+  button.danger:hover{ background:var(--err-bg); border-color:var(--err); }
+  button:disabled{ opacity:0.45; cursor:not-allowed; }
+  button.ghost{ background:transparent; }
+
+  .toggle{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text); cursor:pointer; }
+  .toggle input{ width:auto; accent-color:var(--accent); }
+
+  .status-line{ font-family:var(--mono); font-size:12px; color:var(--text-faint); }
+
+  .out{ display:none; flex-direction:column; gap:10px; }
+  .out.show{ display:flex; }
+  .err-box{
+    background:var(--err-bg); border:1px solid #f5626b40;
+    border-radius:5px; padding:10px 12px;
+    font-family:var(--mono); font-size:12px; color:var(--err);
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .ok-badge, .bad-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:var(--mono); font-size:11px; font-weight:600;
+    padding:3px 9px; border-radius:20px;
+  }
+  .ok-badge{ background:#5eead41a; color:var(--ok); }
+  .bad-badge{ background:#f5626b1a; color:var(--err); }
+  pre.jsonbox{
+    background:#0e1015; border:1px solid var(--border);
+    border-radius:5px; padding:12px 14px;
+    overflow:auto; max-height:340px;
+    white-space:pre-wrap; word-break:break-word;
+    color:#c9cde0;
+  }
+  details.raw{ font-size:12px; color:var(--text-faint); }
+  details.raw summary{ cursor:pointer; font-family:var(--mono); padding:4px 0; }
+
+  .chunk-item{
+    border:1px solid var(--border); border-radius:5px;
+    padding:10px 12px; background:var(--panel-raised);
+    font-size:12.5px;
+  }
+  .chunk-item .meta{ font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-bottom:5px; }
+  .chunk-list{ display:flex; flex-direction:column; gap:8px; max-height:360px; overflow:auto; }
+
+  .score-row{
+    display:flex; align-items:center; gap:10px;
+    border:1px solid var(--border); border-radius:5px;
+    padding:10px 12px; background:var(--panel-raised);
+  }
+  .score-bar-track{ flex:1; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .score-bar-fill{ height:100%; background:var(--accent); }
+  .score-val{ font-family:var(--mono); font-size:12px; color:var(--accent); min-width:52px; text-align:right; }
+  .score-text{ font-size:12.5px; flex:2; }
+
+  .kv-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .kv-cell{
+    border:1px solid var(--border); border-radius:5px; padding:10px 12px;
+    background:var(--panel-raised);
+  }
+  .kv-cell .k{ font-size:11px; color:var(--text-faint); font-family:var(--mono); margin-bottom:4px; }
+  .kv-cell .v{ font-size:13px; font-weight:600; }
+  .v.ok{ color:var(--ok); } .v.bad{ color:var(--err); }
+
+  .vec-preview{ font-family:var(--mono); font-size:11.5px; color:var(--text-dim); }
+
+  .compare-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:720px){ .compare-grid{ grid-template-columns:1fr; } }
+  .compare-col{
+    display:flex; flex-direction:column; gap:8px;
+    border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; background:var(--panel-raised);
+  }
+  .compare-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; }
+
+  .footer-note{ text-align:center; font-size:11.5px; color:var(--text-faint); padding:20px 0 0; }
+  .spinner{
+    width:13px; height:13px; border-radius:50%;
+    border:2px solid var(--border-light); border-top-color:var(--accent);
+    animation:spin 0.7s linear infinite; display:inline-block;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    Libra Assist <span class="sub">/ admin console</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="apibase">
+    <span>API base</span>
+    <input type="text" id="apiBaseInput" value="http://localhost:7799">
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- task1 -->
+  <div class="panel" data-panel>
+    <div class="panel-head" data-toggle>
+      <span class="endpoint-tag get">GET</span>
+      <span class="panel-title">/health · /config</span>
+      <span class="panel-desc">Providers, models, Qdrant status</span>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <div class="actions">
+        <button class="primary" id="btnStatus">Check status</button>
+        <span class="status-line" id="statusLine"></span>
+      </div>
+      <div class="out" id="statusOut">
+        <div class="kv-grid" id="statusGrid"></div>
+        <details class="raw"><summary>Raw response</summary>
+          <pre class="jsonbox" id="statusRaw"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- task2 -->
+  <div class="panel" data-panel>
+    <div class="panel-head" data-toggle>
+      <span class="endpoint-tag post">POST</span>
+      <span class="panel-title">/chunk</span>
+      <span class="panel-desc">Paste text, pick a strategy, inspect chunks</span>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <div>
+        <label for="chunkText">Text</label>
+        <textarea id="chunkText" rows="6" placeholder="Paste source text to chunk…"></textarea>
+      </div>
+      <div class="row">
+        <div>
+          <label for="chunkStrategy">Strategy</label>
+          <select id="chunkStrategy">
+            <option value="static">static</option>
+            <option value="sentence">sentence</option>
+            <option value="dynamic">dynamic</option>
+            <option value="semantic">semantic</option>
+          </select>
+        </div>
+      </div>
+      <details class="raw"><summary>Request body (editable)</summary>
+        <textarea class="mono" id="chunkBody" rows="4"></textarea>
+      </details>
+      <div class="actions">
+        <button class="primary" id="btnChunk">Run chunk</button>
+        <span class="status-line" id="chunkStatusLine"></span>
+      </div>
+      <div class="out" id="chunkOut">
+        <div class="status-line" id="chunkCount"></div>
+        <div class="chunk-list" id="chunkList"></div>
+        <details class="raw"><summary>Raw response</summary>
+          <pre class="jsonbox" id="chunkRaw"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- task3 -->
+  <div class="panel" data-panel>
+    <div class="panel-head" data-toggle>
+      <span class="endpoint-tag post">POST</span>
+      <span class="panel-title">/ingest</span>
+      <span class="panel-desc">Store chunks + embeddings</span>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <div>
+        <label for="ingestText">Text</label>
+        <textarea id="ingestText" rows="6" placeholder="Paste source text to ingest…"></textarea>
+      </div>
+      <div class="row">
+        <div>
+          <label for="ingestStrategy">Strategy</label>
+          <select id="ingestStrategy">
+            <option value="static">static</option>
+            <option value="sentence">sentence</option>
+            <option value="dynamic">dynamic</option>
+            <option value="semantic">semantic</option>
+          </select>
+        </div>
+      </div>
+      <details class="raw"><summary>Request body (editable)</summary>
+        <textarea class="mono" id="ingestBody" rows="4"></textarea>
+      </details>
+      <div class="actions">
+        <button class="primary" id="btnIngest">Ingest</button>
+        <span class="status-line" id="ingestStatusLine"></span>
+      </div>
+      <div class="out" id="ingestOut">
+        <div class="kv-grid" id="ingestGrid"></div>
+        <div class="vec-preview" id="ingestVecPreview"></div>
+        <details class="raw"><summary>Raw response</summary>
+          <pre class="jsonbox" id="ingestRaw"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- task4 -->
+  <div class="panel" data-panel>
+    <div class="panel-head" data-toggle>
+      <span class="endpoint-tag get">GET</span>
+      <span class="panel-title">/collection</span>
+      <span class="panel-desc">Inspect or reset stored data</span>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <div class="actions">
+        <button class="primary" id="btnCollectionGet">Refresh</button>
+        <button class="danger" id="btnCollectionDelete">Delete collection</button>
+        <span class="status-line" id="collectionStatusLine"></span>
+      </div>
+      <div class="out" id="collectionOut">
+        <div class="kv-grid" id="collectionGrid"></div>
+        <details class="raw"><summary>Raw response</summary>
+          <pre class="jsonbox" id="collectionRaw"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- task5 -->
+  <div class="panel" data-panel>
+    <div class="panel-head" data-toggle>
+      <span class="endpoint-tag post">POST</span>
+      <span class="panel-title">/search</span>
+      <span class="panel-desc">Retrieve chunks by similarity</span>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <div class="row">
+        <div style="flex:3">
+          <label for="searchQuery">Query</label>
+          <input type="text" id="searchQuery" placeholder="What do you want to search for?">
+        </div>
+        <div class="field-sm">
+          <label for="searchTopK">top_k</label>
+          <input type="number" id="searchTopK" value="4" min="1" max="50">
+        </div>
+      </div>
+      <details class="raw"><summary>Request body (editable)</summary>
+        <textarea class="mono" id="searchBody" rows="3"></textarea>
+      </details>
+      <div class="actions">
+        <button class="primary" id="btnSearch">Search</button>
+        <span class="status-line" id="searchStatusLine"></span>
+      </div>
+      <div class="out" id="searchOut">
+        <div class="chunk-list" id="searchResults"></div>
+        <details class="raw"><summary>Raw response</summary>
+          <pre class="jsonbox" id="searchRaw"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- task6 -->
+  <div class="panel" data-panel>
+    <div class="panel-head" data-toggle>
+      <span class="endpoint-tag post">POST</span>
+      <span class="panel-title">/ask</span>
+      <span class="panel-desc">Ask a question, with or without RAG</span>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <div>
+        <label for="askQuestion">Question</label>
+        <textarea id="askQuestion" rows="3" placeholder="Ask something…"></textarea>
+      </div>
+      <div class="row">
+        <div class="field-sm">
+          <label for="askTopK">top_k</label>
+          <input type="number" id="askTopK" value="4" min="1" max="50">
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; padding-bottom:10px;">
+          <label class="toggle"><input type="checkbox" id="askUseRag" checked> use_rag</label>
+        </div>
+      </div>
+      <details class="raw"><summary>Request body (editable)</summary>
+        <textarea class="mono" id="askBody" rows="4"></textarea>
+      </details>
+      <div class="actions">
+        <button class="primary" id="btnAsk">Ask</button>
+        <button class="ghost" id="btnAskCompare">Compare RAG off vs on</button>
+        <span class="status-line" id="askStatusLine"></span>
+      </div>
+      <div class="out" id="askOut">
+        <div>
+          <label>Answer</label>
+          <pre class="jsonbox" id="askAnswer" style="white-space:pre-wrap;"></pre>
+        </div>
+        <div>
+          <label>Retrieved chunks</label>
+          <div class="chunk-list" id="askChunks"></div>
+        </div>
+        <details class="raw" open><summary>prompt_sent</summary>
+          <pre class="jsonbox" id="askPrompt"></pre>
+        </details>
+        <details class="raw"><summary>Raw response</summary>
+          <pre class="jsonbox" id="askRaw"></pre>
+        </details>
+      </div>
+
+      <div class="out" id="askCompareOut">
+        <div class="compare-grid">
+          <div class="compare-col">
+            <div class="compare-head">
+              <span class="bad-badge" style="background:transparent;border:1px solid var(--border-light);color:var(--text-dim);">use_rag: false</span>
+              <span class="status-line" id="compareStatusOff"></span>
+            </div>
+            <label>Answer</label>
+            <pre class="jsonbox" id="compareAnswerOff" style="white-space:pre-wrap;"></pre>
+            <label>Retrieved chunks</label>
+            <div class="chunk-list" id="compareChunksOff"></div>
+            <details class="raw"><summary>prompt_sent</summary>
+              <pre class="jsonbox" id="comparePromptOff"></pre>
+            </details>
+          </div>
+          <div class="compare-col">
+            <div class="compare-head">
+              <span class="ok-badge">use_rag: true</span>
+              <span class="status-line" id="compareStatusOn"></span>
+            </div>
+            <label>Answer</label>
+            <pre class="jsonbox" id="compareAnswerOn" style="white-space:pre-wrap;"></pre>
+            <label>Retrieved chunks</label>
+            <div class="chunk-list" id="compareChunksOn"></div>
+            <details class="raw" open><summary>prompt_sent</summary>
+              <pre class="jsonbox" id="comparePromptOn"></pre>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Talks only to the API base above · no keys ever touch this page</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+
+  const LS_KEYS = {
+    apiBase: 'libraAssist:apiBase',
+    chunkStrategy: 'libraAssist:chunkStrategy',
+    ingestStrategy: 'libraAssist:ingestStrategy',
+    searchTopK: 'libraAssist:searchTopK',
+    askTopK: 'libraAssist:askTopK',
+    askUseRag: 'libraAssist:askUseRag'
+  };
+
+  function apiBase(){
+    return ($('apiBaseInput').value || 'http://localhost:7799').replace(/\/+$/,'');
+  }
+
+  function fmtJson(obj){
+    try{ return JSON.stringify(obj, null, 2); }
+    catch(e){ return String(obj); }
+  }
+
+  function setBusy(btn, busy, label){
+    if(busy){
+      btn.dataset.label = btn.textContent;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> ' + (label || 'Working…');
+    } else {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.label || btn.textContent;
+    }
+  }
+
+  async function apiCall(path, { method = 'GET', body } = {}){
+    const url = apiBase() + path;
+    let res, text, data;
+    try{
+      res = await fetch(url, {
+        method,
+        headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+        body: body !== undefined ? JSON.stringify(body) : undefined
+      });
+    } catch(networkErr){
+      return {
+        ok:false, networkError:true, status:0,
+        message:`Could not reach ${url} — is the backend running and CORS-open? (${networkErr.message})`
+      };
+    }
+    text = await res.text();
+    try{ data = text ? JSON.parse(text) : null; } catch(e){ data = text; }
+
+    if(!res.ok){
+      const message = (data && (data.detail || data.message || data.error)) || res.statusText || 'Request failed';
+      return { ok:false, networkError:false, status:res.status, message: typeof message === 'string' ? message : fmtJson(message), data };
+    }
+    return { ok:true, status:res.status, data };
+  }
+
+  function renderError(outEl, statusLineEl, result){
+    outEl.classList.remove('show');
+    const badge = result.status ? `HTTP ${result.status}` : 'Network error';
+    statusLineEl.innerHTML = `<span class="bad-badge">✕ ${badge}</span>`;
+    let box = outEl.parentElement.querySelector('.err-box');
+    if(!box){
+      box = document.createElement('div');
+      box.className = 'err-box';
+      outEl.parentElement.insertBefore(box, outEl);
+    }
+    box.style.display = 'block';
+    box.textContent = `${badge} — ${result.message}`;
+  }
+
+  function clearError(outEl){
+    const box = outEl.parentElement.querySelector('.err-box');
+    if(box) box.style.display = 'none';
+  }
+
+  function okBadge(statusLineEl, status){
+    statusLineEl.innerHTML = `<span class="ok-badge">✓ HTTP ${status}</span>`;
+  }
+
+  function extractChunks(data){
+    if(!data) return [];
+    if(Array.isArray(data)) return data;
+    if(Array.isArray(data.chunks)) return data.chunks;
+    if(Array.isArray(data.results)) return data.results;
+    if(Array.isArray(data.hits)) return data.hits;
+    if(Array.isArray(data.retrieved)) return data.retrieved;
+    return [];
+  }
+
+  function chunkText(c){
+    if(typeof c === 'string') return c;
+    return c.text || c.content || c.chunk || fmtJson(c);
+  }
+
+  function renderChunkList(container, chunks){
+    container.innerHTML = '';
+    if(!chunks.length){
+      container.innerHTML = '<div class="status-line">No chunks returned.</div>';
+      return;
+    }
+    chunks.forEach((c, i) => {
+      const div = document.createElement('div');
+      div.className = 'chunk-item';
+      const len = typeof c === 'string' ? c.length : (c.text || c.content || '').length;
+      div.innerHTML = `<div class="meta">#${i} · ${len} chars</div>${escapeHtml(chunkText(c))}`;
+      container.appendChild(div);
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function panelSetup(){
+    document.querySelectorAll('[data-toggle]').forEach(head => {
+      head.addEventListener('click', () => {
+        head.closest('[data-panel]').classList.toggle('collapsed');
+      });
+    });
+  }
+
+  function restoreSettings(){
+    const savedBase = localStorage.getItem(LS_KEYS.apiBase);
+    if(savedBase) $('apiBaseInput').value = savedBase;
+    $('apiBaseInput').addEventListener('change', () => localStorage.setItem(LS_KEYS.apiBase, apiBase()));
+
+    const cs = localStorage.getItem(LS_KEYS.chunkStrategy);
+    if(cs) $('chunkStrategy').value = cs;
+    $('chunkStrategy').addEventListener('change', () => localStorage.setItem(LS_KEYS.chunkStrategy, $('chunkStrategy').value));
+
+    const is_ = localStorage.getItem(LS_KEYS.ingestStrategy);
+    if(is_) $('ingestStrategy').value = is_;
+    $('ingestStrategy').addEventListener('change', () => localStorage.setItem(LS_KEYS.ingestStrategy, $('ingestStrategy').value));
+
+    const stk = localStorage.getItem(LS_KEYS.searchTopK);
+    if(stk) $('searchTopK').value = stk;
+    $('searchTopK').addEventListener('change', () => localStorage.setItem(LS_KEYS.searchTopK, $('searchTopK').value));
+
+    const atk = localStorage.getItem(LS_KEYS.askTopK);
+    if(atk) $('askTopK').value = atk;
+    $('askTopK').addEventListener('change', () => localStorage.setItem(LS_KEYS.askTopK, $('askTopK').value));
+
+    const rag = localStorage.getItem(LS_KEYS.askUseRag);
+    if(rag !== null) $('askUseRag').checked = rag === 'true';
+    $('askUseRag').addEventListener('change', () => localStorage.setItem(LS_KEYS.askUseRag, $('askUseRag').checked));
+  }
+
+  function syncChunkBody(){
+    $('chunkBody').value = fmtJson({ text: $('chunkText').value, strategy: $('chunkStrategy').value });
+  }
+  function syncIngestBody(){
+    $('ingestBody').value = fmtJson({ text: $('ingestText').value, strategy: $('ingestStrategy').value });
+  }
+  function syncSearchBody(){
+    $('searchBody').value = fmtJson({ query: $('searchQuery').value, top_k: Number($('searchTopK').value) || 4 });
+  }
+  function syncAskBody(){
+    $('askBody').value = fmtJson({
+      question: $('askQuestion').value,
+      use_rag: $('askUseRag').checked,
+      top_k: Number($('askTopK').value) || 4
+    });
+  }
+
+  function readBody(textareaId, fallbackFn){
+    const raw = $(textareaId).value.trim();
+    if(!raw){ fallbackFn(); return JSON.parse($(textareaId).value); }
+    try{ return JSON.parse(raw); }
+    catch(e){ throw new Error(`Request body is not valid JSON: ${e.message}`); }
+  }
+
+  // task1
+  async function runStatus(){
+    const btn = $('btnStatus'), out = $('statusOut'), line = $('statusStatusLineUnused');
+    setBusy(btn, true, 'Checking…');
+    clearError(out);
+    const [health, config] = await Promise.all([apiCall('/health'), apiCall('/config')]);
+    setBusy(btn, false);
+
+    if(!health.ok){
+      renderError(out, $('statusLine'), health);
+      return;
+    }
+    okBadge($('statusLine'), health.status);
+    out.classList.add('show');
+
+    const grid = $('statusGrid');
+    grid.innerHTML = '';
+    const hd = health.data || {};
+    const cd = (config.ok && config.data) || {};
+
+    const cells = [];
+    if('status' in hd) cells.push(['status', hd.status, /ok/i.test(String(hd.status)) ? 'ok' : 'bad']);
+    if('qdrant' in hd) cells.push(['qdrant', hd.qdrant, /ok/i.test(String(hd.qdrant)) ? 'ok' : 'bad']);
+    const chatProvider = cd.chat_provider || cd.llm_provider || hd.chat_provider;
+    const embProvider = cd.embedding_provider || hd.embedding_provider;
+    if(chatProvider) cells.push(['chat provider', chatProvider, '']);
+    if(embProvider) cells.push(['embedding provider', embProvider, '']);
+    const chatModel = cd.chat_model || cd.chat_deployment;
+    const embModel = cd.embedding_model || cd.embedding_deployment;
+    if(chatModel) cells.push(['chat model', chatModel, '']);
+    if(embModel) cells.push(['embedding model', embModel, '']);
+
+    if(!cells.length){
+      grid.innerHTML = '<div class="status-line">Response received — see raw JSON below (field names didn\'t match expected keys).</div>';
+    } else {
+      cells.forEach(([k,v,cls]) => {
+        const cell = document.createElement('div');
+        cell.className = 'kv-cell';
+        cell.innerHTML = `<div class="k">${escapeHtml(k)}</div><div class="v ${cls}">${escapeHtml(String(v))}</div>`;
+        grid.appendChild(cell);
+      });
+    }
+    $('statusRaw').textContent = fmtJson({ health: hd, config: cd });
+  }
+
+  // task2
+  async function runChunk(){
+    const btn = $('btnChunk'), out = $('chunkOut');
+    setBusy(btn, true, 'Chunking…');
+    clearError(out);
+    let body;
+    try{ body = readBody('chunkBody', syncChunkBody); }
+    catch(e){ setBusy(btn, false); renderError(out, $('chunkStatusLine'), {status:null, message:e.message}); return; }
+
+    const res = await apiCall('/chunk', { method:'POST', body });
+    setBusy(btn, false);
+
+    if(!res.ok){ renderError(out, $('chunkStatusLine'), res); return; }
+    okBadge($('chunkStatusLine'), res.status);
+    out.classList.add('show');
+
+    const chunks = extractChunks(res.data);
+    $('chunkCount').textContent = `${chunks.length} chunk(s) returned`;
+    renderChunkList($('chunkList'), chunks);
+    $('chunkRaw').textContent = fmtJson(res.data);
+  }
+
+  // task3
+  async function runIngest(){
+    const btn = $('btnIngest'), out = $('ingestOut');
+    setBusy(btn, true, 'Ingesting…');
+    clearError(out);
+    let body;
+    try{ body = readBody('ingestBody', syncIngestBody); }
+    catch(e){ setBusy(btn, false); renderError(out, $('ingestStatusLine'), {status:null, message:e.message}); return; }
+
+    const res = await apiCall('/ingest', { method:'POST', body });
+    setBusy(btn, false);
+
+    if(!res.ok){ renderError(out, $('ingestStatusLine'), res); return; }
+    okBadge($('ingestStatusLine'), res.status);
+    out.classList.add('show');
+
+    const d = res.data || {};
+    const stored = d.chunks_stored ?? d.stored ?? d.count ?? (Array.isArray(d.chunks) ? d.chunks.length : undefined);
+    const dim = d.vector_dimension ?? d.dimension ?? d.dim;
+    const grid = $('ingestGrid');
+    grid.innerHTML = '';
+    if(stored !== undefined){
+      grid.innerHTML += `<div class="kv-cell"><div class="k">chunks stored</div><div class="v">${escapeHtml(String(stored))}</div></div>`;
+    }
+    if(dim !== undefined){
+      grid.innerHTML += `<div class="kv-cell"><div class="k">vector dimension</div><div class="v">${escapeHtml(String(dim))}</div></div>`;
+    }
+    if(!stored && !dim){
+      grid.innerHTML = '<div class="status-line">Ingested — see raw JSON below (field names didn\'t match expected keys).</div>';
+    }
+
+    const vec = d.embedding || d.vector || (Array.isArray(d.embeddings) ? d.embeddings[0] : null);
+    $('ingestVecPreview').textContent = Array.isArray(vec)
+      ? `embedding[0:8] = [${vec.slice(0,8).map(n => Number(n).toFixed(4)).join(', ')}, …]`
+      : '';
+
+    $('ingestRaw').textContent = fmtJson(res.data);
+  }
+
+  // task4
+  function renderCollection(data){
+    const out = $('collectionOut');
+    out.classList.add('show');
+    const grid = $('collectionGrid');
+    grid.innerHTML = '';
+    const d = data || {};
+    const count = d.count ?? d.points_count ?? d.chunks_count ?? d.size;
+    const dim = d.vector_dimension ?? d.dimension ?? d.dim;
+    const name = d.collection_name ?? d.name;
+    const cells = [];
+    if(name !== undefined) cells.push(['collection', name]);
+    if(count !== undefined) cells.push(['stored chunks', count]);
+    if(dim !== undefined) cells.push(['vector dimension', dim]);
+    if(!cells.length){
+      grid.innerHTML = '<div class="status-line">See raw JSON below.</div>';
+    } else {
+      cells.forEach(([k,v]) => {
+        grid.innerHTML += `<div class="kv-cell"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`;
+      });
+    }
+    $('collectionRaw').textContent = fmtJson(data);
+  }
+
+  async function runCollectionGet(){
+    const btn = $('btnCollectionGet'), out = $('collectionOut');
+    setBusy(btn, true, 'Loading…');
+    clearError(out);
+    const res = await apiCall('/collection');
+    setBusy(btn, false);
+    if(!res.ok){ renderError(out, $('collectionStatusLine'), res); return; }
+    okBadge($('collectionStatusLine'), res.status);
+    renderCollection(res.data);
+  }
+
+  async function runCollectionDelete(){
+    if(!confirm('This deletes the entire collection (all stored chunks + vectors). Continue?')) return;
+    const btn = $('btnCollectionDelete'), out = $('collectionOut');
+    setBusy(btn, true, 'Deleting…');
+    clearError(out);
+    const res = await apiCall('/collection', { method:'DELETE' });
+    setBusy(btn, false);
+    if(!res.ok){ renderError(out, $('collectionStatusLine'), res); return; }
+    okBadge($('collectionStatusLine'), res.status);
+    renderCollection(res.data || { count: 0 });
+  }
+
+  // task5
+  async function runSearch(){
+    const btn = $('btnSearch'), out = $('searchOut');
+    setBusy(btn, true, 'Searching…');
+    clearError(out);
+    let body;
+    try{ body = readBody('searchBody', syncSearchBody); }
+    catch(e){ setBusy(btn, false); renderError(out, $('searchStatusLine'), {status:null, message:e.message}); return; }
+
+    const res = await apiCall('/search', { method:'POST', body });
+    setBusy(btn, false);
+
+    if(!res.ok){ renderError(out, $('searchStatusLine'), res); return; }
+    okBadge($('searchStatusLine'), res.status);
+    out.classList.add('show');
+
+    let results = extractChunks(res.data);
+    results = results.map(r => ({
+      text: chunkText(r),
+      score: (typeof r === 'object') ? (r.score ?? r.similarity ?? r.distance ?? null) : null
+    })).sort((a,b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+
+    const container = $('searchResults');
+    container.innerHTML = '';
+    if(!results.length){
+      container.innerHTML = '<div class="status-line">No results.</div>';
+    } else {
+      const maxScore = Math.max(...results.map(r => r.score ?? 0), 0.0001);
+      results.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'score-row';
+        const pct = r.score !== null ? Math.max(0, Math.min(100, (r.score / maxScore) * 100)) : 0;
+        row.innerHTML = `
+          <div class="score-val">${r.score !== null ? Number(r.score).toFixed(4) : '—'}</div>
+          <div class="score-bar-track"><div class="score-bar-fill" style="width:${pct}%"></div></div>
+          <div class="score-text">${escapeHtml(r.text.slice(0,240))}${r.text.length>240?'…':''}</div>
+        `;
+        container.appendChild(row);
+      });
+    }
+    $('searchRaw').textContent = fmtJson(res.data);
+  }
+
+  // task6
+  async function runAsk(){
+    const btn = $('btnAsk'), out = $('askOut');
+    setBusy(btn, true, 'Asking…');
+    clearError(out);
+    let body;
+    try{ body = readBody('askBody', syncAskBody); }
+    catch(e){ setBusy(btn, false); renderError(out, $('askStatusLine'), {status:null, message:e.message}); return; }
+
+    const res = await apiCall('/ask', { method:'POST', body });
+    setBusy(btn, false);
+
+    if(!res.ok){ renderError(out, $('askStatusLine'), res); return; }
+    okBadge($('askStatusLine'), res.status);
+    out.classList.add('show');
+
+    const d = res.data || {};
+    $('askAnswer').textContent = d.answer || d.response || fmtJson(d);
+    const chunks = extractChunks(d).length ? extractChunks(d) : extractChunks({chunks: d.retrieved_chunks || d.context});
+    renderChunkList($('askChunks'), chunks);
+    $('askPrompt').textContent = d.prompt_sent || d.prompt || '(no prompt_sent field in response)';
+    $('askRaw').textContent = fmtJson(d);
+  }
+
+  async function runAskCompare(){
+    const btn = $('btnAskCompare'), out = $('askCompareOut');
+    setBusy(btn, true, 'Comparing…');
+    clearError(out);
+
+    let baseBody;
+    try{ baseBody = readBody('askBody', syncAskBody); }
+    catch(e){ setBusy(btn, false); renderError(out, $('askStatusLine'), {status:null, message:e.message}); return; }
+
+    const bodyOff = { ...baseBody, use_rag: false };
+    const bodyOn  = { ...baseBody, use_rag: true };
+
+    const [resOff, resOn] = await Promise.all([
+      apiCall('/ask', { method:'POST', body: bodyOff }),
+      apiCall('/ask', { method:'POST', body: bodyOn })
+    ]);
+    setBusy(btn, false);
+    out.classList.add('show');
+
+    if(!resOff.ok){
+      $('compareStatusOff').innerHTML = `<span class="bad-badge">✕ ${resOff.status || 'error'}</span>`;
+      $('compareAnswerOff').textContent = resOff.message;
+      $('compareChunksOff').innerHTML = '';
+      $('comparePromptOff').textContent = '';
+    } else {
+      const dOff = resOff.data || {};
+      $('compareStatusOff').innerHTML = `<span class="ok-badge">✓ HTTP ${resOff.status}</span>`;
+      $('compareAnswerOff').textContent = dOff.answer || dOff.response || fmtJson(dOff);
+      renderChunkList($('compareChunksOff'), extractChunks(dOff));
+      $('comparePromptOff').textContent = dOff.prompt_sent || dOff.prompt || '(no prompt_sent field)';
+    }
+
+    if(!resOn.ok){
+      $('compareStatusOn').innerHTML = `<span class="bad-badge">✕ ${resOn.status || 'error'}</span>`;
+      $('compareAnswerOn').textContent = resOn.message;
+      $('compareChunksOn').innerHTML = '';
+      $('comparePromptOn').textContent = '';
+    } else {
+      const dOn = resOn.data || {};
+      $('compareStatusOn').innerHTML = `<span class="ok-badge">✓ HTTP ${resOn.status}</span>`;
+      $('compareAnswerOn').textContent = dOn.answer || dOn.response || fmtJson(dOn);
+      renderChunkList($('compareChunksOn'), extractChunks(dOn));
+      $('comparePromptOn').textContent = dOn.prompt_sent || dOn.prompt || '(no prompt_sent field)';
+    }
+  }
+
+  function init(){
+    panelSetup();
+    restoreSettings();
+
+    $('chunkText').addEventListener('input', syncChunkBody);
+    $('chunkStrategy').addEventListener('change', syncChunkBody);
+    $('ingestText').addEventListener('input', syncIngestBody);
+    $('ingestStrategy').addEventListener('change', syncIngestBody);
+    $('searchQuery').addEventListener('input', syncSearchBody);
+    $('searchTopK').addEventListener('input', syncSearchBody);
+    $('askQuestion').addEventListener('input', syncAskBody);
+    $('askUseRag').addEventListener('change', syncAskBody);
+    $('askTopK').addEventListener('input', syncAskBody);
+
+    syncChunkBody(); syncIngestBody(); syncSearchBody(); syncAskBody();
+
+    $('btnStatus').addEventListener('click', runStatus);
+    $('btnChunk').addEventListener('click', runChunk);
+    $('btnIngest').addEventListener('click', runIngest);
+    $('btnCollectionGet').addEventListener('click', runCollectionGet);
+    $('btnCollectionDelete').addEventListener('click', runCollectionDelete);
+    $('btnSearch').addEventListener('click', runSearch);
+    $('btnAsk').addEventListener('click', runAsk);
+    $('btnAskCompare').addEventListener('click', runAskCompare);
+
+    runStatus();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
 </html>

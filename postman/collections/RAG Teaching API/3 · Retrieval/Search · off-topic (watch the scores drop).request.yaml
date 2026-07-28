@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/search"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "query": "what is the weather like in Cluj?",
+      "top_k": 3
+    }
+order: 3000

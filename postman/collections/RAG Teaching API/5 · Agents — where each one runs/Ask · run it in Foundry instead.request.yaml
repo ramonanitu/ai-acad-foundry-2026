@@ -1,0 +1,17 @@
+$kind: http-request
+description: Same persona, executed by the Azure Agent Service. Needs identity auth and a deployed agent; look at agent.mode in the response.
+url: "{{baseUrl}}/ask"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "question": "What fee applies to early mortgage repayment?",
+      "use_rag": true,
+      "top_k": 2,
+      "agent": "lyrical",
+      "agent_mode": "foundry"
+    }
+order: 8000

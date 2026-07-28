@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/ask"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "question": "What fee does Libra Bank charge for early mortgage repayment?",
+      "use_rag": true,
+      "top_k": 3
+    }
+order: 2000

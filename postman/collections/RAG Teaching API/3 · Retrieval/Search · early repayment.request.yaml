@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/search"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "query": "can I pay my mortgage back sooner and does it cost anything?",
+      "top_k": 3
+    }
+order: 2000

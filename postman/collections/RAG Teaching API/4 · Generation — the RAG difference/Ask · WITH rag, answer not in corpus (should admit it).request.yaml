@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/ask"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "question": "What is the interest rate for student loans?",
+      "use_rag": true,
+      "top_k": 3
+    }
+order: 3000

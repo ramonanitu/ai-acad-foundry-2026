@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/search"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "query": "my card got frozen, what do I do?",
+      "top_k": 3
+    }
+order: 1000

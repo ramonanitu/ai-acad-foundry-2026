@@ -1,0 +1,5 @@
+$kind: http-request
+description: Resource, region, subscription, both endpoints, the auth lane and the live model deployments. Under key auth the deployment list is unavailable and says why.
+url: "{{baseUrl}}/azure"
+method: GET
+order: 3000

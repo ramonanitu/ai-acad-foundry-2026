@@ -1,0 +1,7 @@
+$kind: http-request
+description: Publishes the persona as a hosted agent. Requires identity auth — run the backend locally after `az login`; it fails by design inside Docker.
+url: "{{baseUrl}}/agents/lyrical/deploy"
+method: POST
+headers:
+  Content-Type: application/json
+order: 3000

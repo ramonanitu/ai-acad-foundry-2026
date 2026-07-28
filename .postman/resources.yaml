@@ -1,0 +1,11 @@
+# Use this workspace to collaborate
+workspace:
+  id: fe567264-5a00-4832-892f-f9a4f97a6aac
+
+localResources:
+  collections:
+    - ../code/backend/postman/rag-teaching-api.postman_collection.json
+
+cloudResources:
+  collections:
+    ../postman/collections/RAG Teaching API: 8ed0eb80-b5c9-4616-9af3-9a6400cba378

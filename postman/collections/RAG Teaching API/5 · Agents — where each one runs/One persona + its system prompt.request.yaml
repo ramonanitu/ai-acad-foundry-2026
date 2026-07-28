@@ -1,0 +1,5 @@
+$kind: http-request
+description: The exact system prompt this JSON produces, grounded and plain.
+url: "{{baseUrl}}/agents/default"
+method: GET
+order: 2000

@@ -1,0 +1,5 @@
+$kind: http-request
+description: Set the collection variable `agentId` first. The local JSON file is untouched.
+url: "{{baseUrl}}/agents/hosted/{{agentId}}"
+method: DELETE
+order: 5000

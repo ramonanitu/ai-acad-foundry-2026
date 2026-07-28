@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/collection"
+method: GET
+order: 2000

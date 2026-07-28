@@ -1,0 +1,13 @@
+$kind: http-request
+description: Check `warnings` and `stats.signal_ratio` — everything the do-it-yourself approach could not handle.
+url: "{{baseUrl}}/tools/web-fetch"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "url": "https://learn.microsoft.com/azure/ai-foundry/what-is-azure-ai-foundry"
+    }
+order: 2000

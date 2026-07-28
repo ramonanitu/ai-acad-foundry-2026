@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/chunk"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "text": "{{sampleText}}",
+      "strategy": "static",
+      "chunk_size": 300,
+      "chunk_overlap": 50
+    }
+order: 1000

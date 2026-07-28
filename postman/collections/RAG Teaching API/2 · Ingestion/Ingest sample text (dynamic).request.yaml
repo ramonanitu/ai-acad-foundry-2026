@@ -1,0 +1,16 @@
+$kind: http-request
+url: "{{baseUrl}}/ingest"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "text": "{{sampleText}}",
+      "strategy": "dynamic",
+      "chunk_size": 400,
+      "chunk_overlap": 80,
+      "source": "retail-faq"
+    }
+order: 1000
