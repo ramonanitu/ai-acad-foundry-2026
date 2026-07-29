@@ -30,19 +30,34 @@ class AgentReply:
     completion_tokens: int | None = None
 
 
-def build_user_prompt(question: str, chunks: list[dict]) -> str:
-    """Question alone, or question + retrieved passages."""
-    if not chunks:
-        return question
-    context = "\n\n".join(
-        f"[{i + 1}] (score {c['score']}) {c['text']}" for i, c in enumerate(chunks)
-    )
-    return (
-        "CONTEXT — retrieved passages, most similar first:\n"
-        f"{context}\n\n"
-        "QUESTION:\n"
-        f"{question}"
-    )
+def build_user_prompt(question: str, chunks: list[dict], no_evidence: bool = False) -> str:
+    """Question alone, question + retrieved passages, or question + an explicit
+    note that retrieval came up empty (candidates existed but none cleared the
+    similarity floor — see `no_evidence` in main.py's /ask). That note keeps the
+    persona in character and free to use the conversation history, while still
+    forbidding it from inventing the specific fact it wasn't given."""
+    if chunks:
+        context = "\n\n".join(
+            f"[{i + 1}] (score {c['score']}) {c['text']}" for i, c in enumerate(chunks)
+        )
+        return (
+            "CONTEXT — retrieved passages, most similar first:\n"
+            f"{context}\n\n"
+            "QUESTION:\n"
+            f"{question}"
+        )
+    if no_evidence:
+        return (
+            "QUESTION:\n"
+            f"{question}\n\n"
+            "NOTE: A search of the knowledge base found candidate passages, but none scored "
+            "high enough to be trusted as relevant to this specific question. Do not guess or "
+            "invent specific facts (numbers, deadlines, policy details) to answer it — say "
+            "plainly that you don't have a grounded answer for this point, and use the rest of "
+            "the conversation to decide what to do next (e.g. ask a clarifying question, or say "
+            "which team/channel can help)."
+        )
+    return question
 
 
 def run(
@@ -50,10 +65,12 @@ def run(
     question: str,
     chunks: list[dict] | None = None,
     temperature: float | None = None,
+    history: list[dict] | None = None,
+    no_evidence: bool = False,
 ) -> AgentReply:
     chunks = chunks or []
     system = persona.system_prompt(grounded=bool(chunks))
-    user = build_user_prompt(question, chunks)
+    user = build_user_prompt(question, chunks, no_evidence=no_evidence)
 
     # precedence: explicit request value > persona file > .env default
     temp = temperature if temperature is not None else (
@@ -68,7 +85,7 @@ def run(
 
     llm = get_llm()
     result = llm.chat(system=system, user=user, temperature=temp,
-                      max_tokens=max_tokens, extras=extras)
+                      max_tokens=max_tokens, extras=extras, history=history)
 
     return AgentReply(
         text=result.text,

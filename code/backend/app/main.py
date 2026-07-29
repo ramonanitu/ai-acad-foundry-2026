@@ -18,8 +18,8 @@ from .llm import get_llm
 from .schemas import (
     AgentInfo, AgentListResponse, AskRequest, AskResponse, AzureDeployment, AzureDeployments,
     AzureStatus, ChunkInfo, ChunkRequest, ChunkResponse, CollectionInfo, FoundryAvailability,
-    Health, HostedAgent, IngestRequest, IngestResponse, PersonaSummary, ScrapeRequest,
-    ScrapeResponse, SearchHit, SearchRequest, SearchResponse, SpeakRequest,
+    Health, HostedAgent, IngestRequest, IngestResponse, MAX_HISTORY_TURNS, PersonaSummary,
+    ScrapeRequest, ScrapeResponse, SearchHit, SearchRequest, SearchResponse, SpeakRequest,
     TranscribeResponse, Usage, WebSearchHit, WebSearchRequest, WebSearchResponse,
     FactCheckRequest, FactCheckResponse, FactCheckSource, FactCheckVerdict,
     AzureSearchQueryRequest, AzureSearchSyncRequest,
@@ -102,6 +102,9 @@ def _agent_info(persona, hosted_only: dict | None, mode: str) -> AgentInfo:
             name=persona.name, display_name=persona.display_name,
             description=persona.description, mode=mode,
             temperature=persona.temperature, style_rules=persona.style_rules,
+            max_tokens=persona.max_tokens, require_citations=persona.require_citations,
+            refuse_when_unsupported=persona.refuse_when_unsupported,
+            reasoning_effort=persona.reasoning_effort, tools=persona.tools,
         )
     return AgentInfo(
         name=hosted_only["name"], display_name=hosted_only["name"],
@@ -348,6 +351,12 @@ def ask(req: AskRequest) -> AskResponse:
     """
     retrieved: list[SearchHit] = []
 
+    # ---- conversation memory --------------------------------------------------
+    # Stateless API: nothing is kept server-side between calls. The caller (the
+    # chat UI) resends the recent turns each time; we just cap it defensively so
+    # an over-eager client can't blow up the prompt.
+    history = [m.model_dump() for m in req.history[-MAX_HISTORY_TURNS:]]
+
     # ---- which persona, and does it need to be local? ------------------------
     persona_name = req.agent or settings.agent_persona
     mode_requested = (req.agent_mode or settings.agent_mode).lower()
@@ -367,8 +376,10 @@ def ask(req: AskRequest) -> AskResponse:
         if not hosted_only:
             raise HTTPException(status_code=404, detail=str(e))
 
-    # ---- retrieval (now score-floored and metadata-filterable) --------------
+    # ---- retrieval (now score-floored, metadata-filterable, and history-aware) --
     dropped = 0
+    no_evidence = False
+    retrieval_query = req.question
     if req.use_rag:
         _require_qdrant()
         if not store.info()["exists"]:
@@ -377,26 +388,26 @@ def ask(req: AskRequest) -> AskResponse:
                                        "or set use_rag=false for a plain LLM answer.")
         top_k = req.top_k or settings.top_k
         min_score = req.min_score if req.min_score is not None else settings.min_score
-        qvec = _embed([req.question])[0]
+
+        # A bare follow-up ("how long will it take?") embeds nowhere near the right
+        # chunk on its own — fold in the recent user turns so retrieval sees what
+        # "it" refers to, the same way a human reading the transcript would.
+        prior_user_turns = [m["content"] for m in history if m["role"] == "user"]
+        if prior_user_turns:
+            retrieval_query = "\n".join(prior_user_turns[-2:] + [req.question])
+
+        qvec = _embed([retrieval_query])[0]
         raw_hits = store.search(qvec, top_k, req.filters)
         kept = [h for h in raw_hits if h["score"] >= min_score]
         dropped = len(raw_hits) - len(kept)
         retrieved = [SearchHit(**h) for h in kept]
 
-        # Every candidate scored below the floor — say so instead of asking the
-        # model to answer from context that isn't actually relevant.
-        if raw_hits and not retrieved:
-            mode = mode_requested
-            info = _agent_info(persona, hosted_only, mode)
-            return AskResponse(
-                answer="Nothing in the knowledge base scores as relevant enough to answer this "
-                       f"confidently (best match was below the {min_score:.2f} similarity floor). "
-                       "Rather than guess, I'm saying so directly.",
-                augmented=True, provider="none", model="none", agent=info,
-                system_prompt="(not sent — no retrieved chunk cleared min_score)",
-                prompt_sent=req.question, retrieved=[], dropped_below_threshold=dropped,
-                usage=Usage(prompt_tokens=0, completion_tokens=0),
-            )
+        # Every candidate scored below the floor. Rather than hand the model context
+        # it can't trust, we still run the persona (with the real conversation history)
+        # but tell it plainly that nothing cleared the bar, so it can decline the
+        # specific fact without inventing one — and without dropping out of character
+        # or forgetting what was already said.
+        no_evidence = bool(raw_hits and not retrieved)
 
     chunks = [h.model_dump() for h in retrieved]
     mode = mode_requested
@@ -404,11 +415,14 @@ def ask(req: AskRequest) -> AskResponse:
     # ---- run the agent ------------------------------------------------------
     try:
         if hosted_only is not None:
-            reply = foundry_agent.run_hosted(hosted_only, req.question, chunks)
+            reply = foundry_agent.run_hosted(hosted_only, req.question, chunks,
+                                             history=history, no_evidence=no_evidence)
         elif mode == "foundry":
-            reply = foundry_agent.run(persona, req.question, chunks)
+            reply = foundry_agent.run(persona, req.question, chunks,
+                                      history=history, no_evidence=no_evidence)
         else:
-            reply = local_agent.run(persona, req.question, chunks, temperature=req.temperature)
+            reply = local_agent.run(persona, req.question, chunks, temperature=req.temperature,
+                                    history=history, no_evidence=no_evidence)
     except foundry_agent.FoundryUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
@@ -416,19 +430,6 @@ def ask(req: AskRequest) -> AskResponse:
                             detail=f"Agent run failed (mode={mode}, provider={settings.llm_provider}): {e}")
 
     info = _agent_info(persona, hosted_only, reply.mode)
-
-    verdict = None
-    if req.fact_check:
-        try:
-            checked = _run_fact_check(reply.text, req.fact_check_urls,
-                                      settings.fact_check_pages)
-            verdict = FactCheckVerdict(**{k: checked[k] for k in
-                                          ("verdict", "confidence", "reasoning",
-                                           "evidence_from", "sources")})
-        except Exception as e:                   # noqa: BLE001 — never lose the answer
-            verdict = FactCheckVerdict(
-                verdict="unavailable", confidence="none", reasoning="",
-                evidence_from="none", error=str(e)[:300])
 
     verdict = None
     if req.fact_check:
@@ -452,6 +453,8 @@ def ask(req: AskRequest) -> AskResponse:
         agent=info,
         system_prompt=reply.system_prompt,
         prompt_sent=reply.prompt_sent,
+        history_used=history,
+        retrieval_query_used=retrieval_query,
         retrieved=retrieved,
         dropped_below_threshold=dropped,
         usage=Usage(prompt_tokens=reply.prompt_tokens, completion_tokens=reply.completion_tokens),

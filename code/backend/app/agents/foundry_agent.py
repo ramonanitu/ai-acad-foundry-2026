@@ -252,6 +252,8 @@ def run(
     question: str,
     chunks: list[dict] | None = None,
     agent_id: str | None = None,
+    history: list[dict] | None = None,
+    no_evidence: bool = False,
 ) -> AgentReply:
     """Invoke the hosted agent for this persona.
 
@@ -267,21 +269,32 @@ def run(
             f"Deploy it first — POST /agents/{persona.name}/deploy, or "
             f"`python scripts/deploy_agent.py {persona.name}`."
         )
-    return _run_thread(agent_id, persona.name, question, chunks or [])
+    return _run_thread(agent_id, persona.name, question, chunks or [], history or [], no_evidence)
 
 
-def run_hosted(agent: dict, question: str, chunks: list[dict] | None = None) -> AgentReply:
+def run_hosted(agent: dict, question: str, chunks: list[dict] | None = None,
+               history: list[dict] | None = None, no_evidence: bool = False) -> AgentReply:
     """Invoke a hosted agent that has no local persona file — its instructions
     live in Foundry, so there is nothing to compose on our side."""
-    return _run_thread(agent["agent_id"], agent["name"], question, chunks or [])
+    return _run_thread(agent["agent_id"], agent["name"], question, chunks or [],
+                       history or [], no_evidence)
 
 
-def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[dict]) -> AgentReply:
-    """The Agent Service protocol, in four calls."""
-    user = build_user_prompt(question, chunks)
+def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[dict],
+                history: list[dict] | None = None, no_evidence: bool = False) -> AgentReply:
+    """The Agent Service protocol, in four calls.
+
+    A thread is opened fresh on every call — the Agent Service has no notion of
+    "this is the same conversation as last time" unless we tell it, so any prior
+    turns the caller wants remembered are replayed into the new thread first.
+    """
+    user = build_user_prompt(question, chunks, no_evidence=no_evidence)
 
     thread = _call("POST", "threads", {})                                    # 1 open
     thread_id = thread["id"]
+    for turn in (history or []):
+        _call("POST", f"threads/{thread_id}/messages",
+              {"role": turn["role"], "content": turn["content"]})
     _call("POST", f"threads/{thread_id}/messages",
           {"role": "user", "content": user})                                 # 2 ask
     run_obj = _call("POST", f"threads/{thread_id}/runs",

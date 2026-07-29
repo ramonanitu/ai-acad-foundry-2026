@@ -110,6 +110,14 @@ class SearchResponse(BaseModel):
 
 
 # --- generation ---------------------------------------------------------------
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1)
+
+
+MAX_HISTORY_TURNS = 12  # server-side cap — the client may send more, only the tail is used
+
+
 class AskRequest(BaseModel):
     model_config = {"json_schema_extra": {"examples": [{
         "question": "What fee does Libra Bank charge for early mortgage repayment?",
@@ -119,6 +127,13 @@ class AskRequest(BaseModel):
     }]}}
 
     question: str = Field(..., min_length=1)
+    history: list[ChatMessage] = Field(
+        default_factory=list,
+        description="Prior turns in this conversation, oldest first (e.g. the last few "
+                    "user/assistant pairs). The API is stateless — nothing is stored "
+                    "server-side, so the caller resends this each turn. Only the most "
+                    f"recent {MAX_HISTORY_TURNS} messages are actually used.",
+    )
     use_rag: bool = Field(True, description="false = plain LLM; true = retrieve then augment")
     top_k: Optional[int] = Field(None, ge=1, le=50)
     min_score: Optional[float] = Field(
@@ -155,6 +170,11 @@ class AgentInfo(BaseModel):
     mode: str = Field(description="Where this run executed: local or foundry")
     temperature: Optional[float] = None
     style_rules: list[str] = Field(default_factory=list)
+    max_tokens: Optional[int] = None
+    require_citations: bool = True
+    refuse_when_unsupported: bool = True
+    reasoning_effort: Optional[str] = None
+    tools: list[str] = Field(default_factory=list)
 
 
 class HostedAgent(BaseModel):
@@ -265,6 +285,14 @@ class AskResponse(BaseModel):
     agent: Optional[AgentInfo] = Field(None, description="Which persona shaped this answer")
     system_prompt: str = Field(description="The system message actually sent")
     prompt_sent: str = Field(description="The exact user prompt sent to the model — compare with/without RAG")
+    history_used: list[ChatMessage] = Field(
+        default_factory=list, description="The prior turns actually included, after the server-side cap"
+    )
+    retrieval_query_used: str = Field(
+        "", description="What was actually embedded for retrieval — recent user turns folded in "
+                        "so a bare follow-up like 'how long will it take?' still finds the right "
+                        "chunk. Differs from `question` whenever history was present."
+    )
     retrieved: list[SearchHit] = Field(default_factory=list)
     dropped_below_threshold: int = Field(0, description="Retrieved hits dropped for scoring below min_score")
     usage: Optional[Usage] = None

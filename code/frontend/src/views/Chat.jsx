@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { Err, RunsOnBadge } from '../components'
+import { Callout, RunsOnBadge } from '../components'
+
+const PROMPTS = [
+  'My card got frozen — what do I do?',
+  'Can I pay my mortgage back sooner?',
+  'What happens if I break a term deposit early?',
+]
 
 export default function Chat({ agents, hostedOnly = [], foundry }) {
   const [messages, setMessages] = useState([])
@@ -11,24 +17,83 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
   const [mode, setMode] = useState('local')
   const [topK, setTopK] = useState(3)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [audioState, setAudioState] = useState({})   // { [messageIndex]: { status, url, playing, error } }
   const endRef = useRef(null)
+  const audioRef = useRef(null)
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, busy])
 
-  async function send() {
-    const text = question.trim()
+  const HISTORY_TURNS = 6   // last few exchanges sent back so the agent can follow up
+
+  // Turn the on-screen transcript into the {role, content} pairs the API expects.
+  // Failed requests leave no trace here — there's nothing coherent to replay.
+  function recentHistory() {
+    return messages
+      .filter((m) => m.role === 'user' || m.role === 'bot')
+      .map((m) => m.role === 'user'
+        ? { role: 'user', content: m.text }
+        : { role: 'assistant', content: m.data.answer })
+      .slice(-HISTORY_TURNS * 2)
+  }
+
+  async function send(text0) {
+    const text = (text0 ?? question).trim()
     if (!text || busy) return
-    setQuestion(''); setError(null); setBusy(true)
+    const history = recentHistory()
+    setQuestion(''); setBusy(true)
     setMessages((m) => [...m, { role: 'user', text }])
     try {
       const data = await api.ask({ question: text, use_rag: useRag, top_k: Number(topK),
-                                  agent, agent_mode: mode, fact_check: factCheck })
+                                  agent, agent_mode: mode, fact_check: factCheck, history })
       setMessages((m) => [...m, { role: 'bot', data }])
     } catch (e) {
       setMessages((m) => [...m, { role: 'err', text: e.message }])
-      setError(e.message)
     } finally { setBusy(false) }
+  }
+
+  // One shared <audio> element — starting a new answer stops whatever was playing.
+  // Already-synthesized audio is cached by message index so replaying doesn't re-call Speech.
+  // `playing: true` is only set once play() actually resolves — otherwise a blocked or
+  // failed playback (autoplay policy, decode error) would look identical to a working one.
+  async function playAudio(i, url) {
+    audioRef.current?.pause()
+    const audio = new Audio(url)
+    audioRef.current = audio
+    audio.onended = () => setAudioState((s) => ({ ...s, [i]: { ...s[i], playing: false } }))
+    audio.onerror = () => {
+      const err = audio.error
+      const reason = { 1: 'aborted', 2: 'network error', 3: 'could not decode audio',
+                       4: 'audio format not supported' }[err?.code] || 'unknown playback error'
+      setAudioState((s) => ({ ...s, [i]: { status: 'error', error: reason } }))
+    }
+    try {
+      await audio.play()
+      setAudioState((s) => {
+        const next = {}
+        for (const k in s) next[k] = { ...s[k], playing: false }
+        next[i] = { status: 'ready', url, playing: true }
+        return next
+      })
+    } catch (e) {
+      setAudioState((s) => ({ ...s, [i]: { status: 'error', error: e.message } }))
+    }
+  }
+
+  async function speak(i, text) {
+    const cur = audioState[i]
+    if (cur?.status === 'ready') {
+      if (cur.playing) { audioRef.current?.pause(); setAudioState((s) => ({ ...s, [i]: { ...s[i], playing: false } })) }
+      else playAudio(i, cur.url)
+      return
+    }
+    if (cur?.status === 'loading') return
+    setAudioState((s) => ({ ...s, [i]: { status: 'loading' } }))
+    try {
+      const blob = await api.speak({ text })
+      await playAudio(i, URL.createObjectURL(blob))
+    } catch (e) {
+      setAudioState((s) => ({ ...s, [i]: { status: 'error', error: e.message } }))
+    }
   }
 
   const all = [...agents, ...hostedOnly]
@@ -67,68 +132,119 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
           )}
         </select>
         {current && <RunsOnBadge runsOn={current.runs_on} reason={foundry?.reason} />}
+
         <label className="check" style={{ margin: 0 }} title="Retrieve from your documents and ground the answer">
           <input type="checkbox" checked={useRag} onChange={(e) => setUseRag(e.target.checked)} />
-          use RAG
+          use my documents
         </label>
-        <label className="check" style={{ margin: 0 }}
-               title="After answering, verify the answer against the open web and attach a verdict">
-          <input type="checkbox" checked={factCheck} onChange={(e) => setFactCheck(e.target.checked)} />
-          fact-check
-        </label>
-        <select value={mode} onChange={(e) => setMode(e.target.value)} style={{ minWidth: '9rem' }}
-                title="Where the loop executes">
-          <option value="local" disabled={localImpossible}
-                  title={localImpossible ? 'This agent has no local JSON file' : ''}>
-            local agent
-          </option>
-          <option value="foundry" disabled={foundryBlocked} title={foundryBlocked ? foundryWhy : ''}>
-            Foundry agent{foundryReachable === false ? ' — no identity'
-                          : foundryBlocked ? ' — not deployed' : ''}
-          </option>
-        </select>
-        <input type="number" min="1" max="10" value={topK} onChange={(e) => setTopK(e.target.value)}
-               style={{ width: '4.5rem', flex: '0 0 auto' }} title="Passages to retrieve" />
+
+        <span className="grow-gap" />
+
         {foundryReachable === false && (
-          <span className="badge muted" title={foundryWhy}>
-            hosted agents off — key auth
-          </span>
+          <span className="badge muted" title={foundryWhy}>hosted agents off — key auth</span>
         )}
-        <button className="btn btn-outline btn-sm" onClick={() => setMessages([])}>clear</button>
-        {current && <span className="badge muted" title={current.description}>temp {current.temperature ?? '—'}</span>}
+
+        <details className="advanced">
+          <summary className="btn btn-outline btn-sm">⚙ advanced</summary>
+          <div className="advanced-panel">
+            <label className="check" title="After answering, verify the answer against the open web and attach a verdict">
+              <input type="checkbox" checked={factCheck} onChange={(e) => setFactCheck(e.target.checked)} />
+              fact-check answers
+            </label>
+            <div>
+              <label>Where the agent runs</label>
+              <select value={mode} onChange={(e) => setMode(e.target.value)} title="Where the loop executes">
+                <option value="local" disabled={localImpossible}
+                        title={localImpossible ? 'This agent has no local JSON file' : ''}>
+                  local agent
+                </option>
+                <option value="foundry" disabled={foundryBlocked} title={foundryBlocked ? foundryWhy : ''}>
+                  Foundry agent{foundryReachable === false ? ' — no identity'
+                                : foundryBlocked ? ' — not deployed' : ''}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label>Passages to retrieve (top k)</label>
+              <input type="number" min="1" max="10" value={topK} onChange={(e) => setTopK(e.target.value)} />
+            </div>
+            {current && <p className="faint" style={{ margin: 0 }}>{current.description} · temperature {current.temperature ?? '—'}</p>}
+          </div>
+        </details>
+
+        <button className="btn btn-outline btn-sm" onClick={() => setMessages([])} disabled={!messages.length}>clear</button>
       </div>
 
       <div className="msgs">
         {messages.length === 0 && (
-          <div className="card" style={{ alignSelf: 'center', maxWidth: '46rem', textAlign: 'center' }}>
-            <h3>Libra Assist</h3>
+          <div className="card welcome">
+            <span className="mark-lg">L</span>
+            <h3>Ask Libra Assist</h3>
             <p className="muted" style={{ margin: 0 }}>
-              Ask a question about the documents you have ingested. Switch the persona to change how
-              it answers, or turn RAG off to see the model answer without grounding.
+              Questions about cards, mortgages, or deposits are answered from the documents you've
+              ingested, with the exact sources and scores shown underneath. Switch the persona above
+              to see the tone change, or turn off "use my documents" to compare against the model alone.
             </p>
+            <div className="chips">
+              {PROMPTS.map((p) => <button key={p} className="chip" onClick={() => send(p)}>{p}</button>)}
+            </div>
           </div>
         )}
 
         {messages.map((m, i) => {
           if (m.role === 'user') return <div className="msg user" key={i}>{m.text}</div>
-          if (m.role === 'err') return <div className="msg err" key={i}><strong>Request failed:</strong> {m.text}</div>
+          if (m.role === 'err') return (
+            <div className="msg bot" key={i} style={{ padding: 0, border: 0, background: 'none' }}>
+              <Callout tone="danger" title="That request failed">{m.text}</Callout>
+            </div>
+          )
           const d = m.data
+          const noEvidence = d.augmented && (d.retrieved?.length ?? 0) === 0
           return (
             <div className="msg bot" key={i}>
-              {d.answer}
+              {noEvidence ? (
+                <Callout tone="warn" title="Nothing relevant was found">
+                  {d.answer}
+                </Callout>
+              ) : d.answer}
               <div className="msg-meta">
                 <span className="badge">{d.agent?.display_name || 'agent'}</span>
-                <span className={`badge ${d.augmented ? 'gold' : 'muted'}`}>{d.augmented ? 'grounded' : 'no retrieval'}</span>
+                <span className={`badge ${d.augmented ? (noEvidence ? 'gold' : 'teal') : 'muted'}`}>
+                  {d.augmented ? (noEvidence ? 'no sources found' : 'grounded in your documents') : 'general knowledge only'}
+                </span>
                 <span className="badge muted">{d.agent?.mode}</span>
                 <span className="badge muted">{d.model}</span>
                 {d.usage && <span className="badge muted">{d.usage.prompt_tokens}↑ {d.usage.completion_tokens}↓ tokens</span>}
+                <button className="btn btn-outline btn-sm" style={{ marginLeft: 'auto' }}
+                        onClick={() => speak(i, d.answer)}
+                        disabled={audioState[i]?.status === 'loading'}
+                        title="Listen to this answer (Azure AI Speech)">
+                  {audioState[i]?.status === 'loading' ? <span className="spin" />
+                    : audioState[i]?.playing ? '⏸ pause' : '🔊 listen'}
+                </button>
               </div>
+              {audioState[i]?.status === 'error' && (
+                <p className="faint" style={{ margin: '.4rem 0 0', color: 'var(--c-crimson-ink)' }}>
+                  Couldn't speak this answer: {audioState[i].error}
+                </p>
+              )}
+
+              {d.dropped_below_threshold > 0 && (
+                <div style={{ marginTop: '.55rem' }}>
+                  <Callout tone="info">
+                    {d.dropped_below_threshold} candidate passage{d.dropped_below_threshold > 1 ? 's' : ''} scored too low
+                    to count as relevant and {d.dropped_below_threshold > 1 ? 'were' : 'was'} left out — shown here instead
+                    of silently used.
+                  </Callout>
+                </div>
+              )}
+
               {d.fact_check && (
                 <div className="src" style={{ marginTop: '.55rem',
                      borderLeftColor: d.fact_check.verdict === 'supported' ? 'var(--c-teal)'
                        : d.fact_check.verdict === 'contradicted' ? 'var(--c-crimson)' : 'var(--c-gold)' }}>
                   <span className={`badge ${d.fact_check.verdict === 'contradicted' ? 'crimson'
-                    : d.fact_check.verdict === 'supported' ? '' : 'gold'}`}>
+                    : d.fact_check.verdict === 'supported' ? 'teal' : 'gold'}`}>
                     fact-check: {d.fact_check.verdict}
                   </span>{' '}
                   <span className="faint">{d.fact_check.confidence} confidence · {d.fact_check.evidence_from}</span>
@@ -147,21 +263,44 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                   )}
                 </div>
               )}
+
               {d.retrieved?.length > 0 && (
                 <details className="sources">
-                  <summary>{d.retrieved.length} retrieved passage{d.retrieved.length > 1 ? 's' : ''}</summary>
+                  <summary>{d.retrieved.length} source{d.retrieved.length > 1 ? 's' : ''} used, ranked by score</summary>
                   {d.retrieved.map((h, j) => (
                     <div className="src" key={h.id}>
                       <span className="score">[{j + 1}] score {h.score.toFixed(4)}</span>
+                      <span className="score-bar" style={{ width: `${Math.max(6, Math.min(100, h.score * 100))}px` }} />
                       <div>{h.text}</div>
                     </div>
                   ))}
                 </details>
               )}
+
               <details className="sources">
-                <summary>the exact prompt that was sent</summary>
-                <pre className="out" style={{ marginTop: '.4rem' }}>{`SYSTEM:\n${d.system_prompt}\n\nUSER:\n${d.prompt_sent}`}</pre>
+                <summary>the exact prompt that was sent{d.history_used?.length > 0 ? ` (+ ${d.history_used.length} prior turn${d.history_used.length > 1 ? 's' : ''})` : ''}</summary>
+                <pre className="out" style={{ marginTop: '.4rem' }}>{`SYSTEM:\n${d.system_prompt}\n\n${
+                  (d.history_used || []).map((h) => `${h.role.toUpperCase()} (earlier):\n${h.content}`).join('\n\n')
+                }${d.history_used?.length > 0 ? '\n\n' : ''}USER:\n${d.prompt_sent}`}</pre>
               </details>
+
+              {d.agent && (
+                <details className="sources">
+                  <summary>the persona config behind this answer ({d.agent.display_name})</summary>
+                  <pre className="out" style={{ marginTop: '.4rem' }}>{JSON.stringify({
+                    name: d.agent.name,
+                    display_name: d.agent.display_name,
+                    description: d.agent.description,
+                    temperature: d.agent.temperature,
+                    max_tokens: d.agent.max_tokens,
+                    require_citations: d.agent.require_citations,
+                    refuse_when_unsupported: d.agent.refuse_when_unsupported,
+                    reasoning_effort: d.agent.reasoning_effort,
+                    tools: d.agent.tools,
+                    style_rules: d.agent.style_rules,
+                  }, null, 2)}</pre>
+                </details>
+              )}
             </div>
           )
         })}
@@ -169,12 +308,11 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
         <div ref={endRef} />
       </div>
 
-      <Err error={error} />
       <div className="composer">
         <textarea value={question} placeholder="Ask Libra Assist…  (Enter to send, Shift+Enter for a new line)"
                   onChange={(e) => setQuestion(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
-        <button className="btn btn-primary" onClick={send} disabled={busy || !question.trim()}>Send</button>
+        <button className="btn btn-primary" onClick={() => send()} disabled={busy || !question.trim()}>Send</button>
       </div>
     </div>
   )

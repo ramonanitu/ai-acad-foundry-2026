@@ -27,14 +27,16 @@ class LLM:
         self._client = client
 
     def chat(self, system: str, user: str, temperature: float, max_tokens: int,
-             extras: dict | None = None) -> ChatResult:
+             extras: dict | None = None, history: list[dict] | None = None) -> ChatResult:
         extras = extras or {}
+        history = history or []          # prior turns, oldest first: [{"role", "content"}, ...]
         if self.provider in ("lmstudio", "openai"):
             kwargs: dict = {
                 "model": self.model,
                 "temperature": temperature,
                 "messages": [
                     {"role": "system", "content": system},
+                    *history,
                     {"role": "user", "content": user},
                 ],
             }
@@ -60,7 +62,7 @@ class LLM:
                 system=system,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                messages=[{"role": "user", "content": user}],
+                messages=[*history, {"role": "user", "content": user}],
             )
             return ChatResult(
                 text="".join(block.text for block in r.content if block.type == "text"),
@@ -73,6 +75,7 @@ class LLM:
         # azure — azure-ai-inference ChatCompletionsClient
         messages = [
             {"role": "system", "content": system},
+            *history,
             {"role": "user", "content": user},
         ]
         try:

@@ -16,6 +16,17 @@ export function Err({ error }) {
   return <div className="err" style={{ marginTop: '.8rem' }}><strong>Error:</strong> {error}</div>
 }
 
+/** A plain, visible admission — used wherever the app has nothing, refused, or is
+ *  unsure, instead of a blank space that looks like a bug. */
+export function Callout({ tone = 'info', title, children }) {
+  return (
+    <div className={`callout callout--${tone}`}>
+      {title && <p style={{ fontWeight: 700, margin: '0 0 .25rem' }}>{title}</p>}
+      <div>{children}</div>
+    </div>
+  )
+}
+
 export function Spinner({ label = 'working' }) {
   return <span className="muted" style={{ fontSize: '.85rem' }}><span className="spin" /> {label}…</span>
 }
