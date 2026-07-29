@@ -430,6 +430,19 @@ def ask(req: AskRequest) -> AskResponse:
                 verdict="unavailable", confidence="none", reasoning="",
                 evidence_from="none", error=str(e)[:300])
 
+    verdict = None
+    if req.fact_check:
+        try:
+            checked = _run_fact_check(reply.text, req.fact_check_urls,
+                                      settings.fact_check_pages)
+            verdict = FactCheckVerdict(**{k: checked[k] for k in
+                                          ("verdict", "confidence", "reasoning",
+                                           "evidence_from", "sources")})
+        except Exception as e:                   # noqa: BLE001 — never lose the answer
+            verdict = FactCheckVerdict(
+                verdict="unavailable", confidence="none", reasoning="",
+                evidence_from="none", error=str(e)[:300])
+
     return AskResponse(
         answer=reply.text,
         augmented=req.use_rag,
