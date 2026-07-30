@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
-import { IconChat, IconChevron, IconMoon, IconSun } from './components'
+import { IconChat, IconChevron, IconMoon, IconPlus, IconSun, IconTrash } from './components'
+import { deleteConversation, loadConversations, newId } from './conversations'
 import Agents from './views/Agents'
 import Chat from './views/Chat'
 import Knowledge from './views/Knowledge'
@@ -29,6 +30,25 @@ export default function App() {
   const [health, setHealth] = useState(null)
   const [azure, setAzure] = useState(null)
   const [theme, setTheme] = useState('light')
+  const [conversationId, setConversationId] = useState(() => newId())
+  const [conversations, setConversations] = useState(() => loadConversations())
+
+  const refreshConversations = useCallback(() => setConversations(loadConversations()), [])
+
+  function startNewChat() {
+    setConversationId(newId())
+    setView('chat')
+  }
+  function openConversation(id) {
+    setConversationId(id)
+    setView('chat')
+  }
+  function removeConversation(id, e) {
+    e.stopPropagation()
+    deleteConversation(id)
+    refreshConversations()
+    if (id === conversationId) startNewChat()
+  }
 
   const loadAgents = useCallback(() => {
     api.agents()
@@ -61,6 +81,29 @@ export default function App() {
           <button className={`nav-item hero ${view === PRIMARY.id ? 'active' : ''}`} onClick={() => setView(PRIMARY.id)}>
             <IconChat /> {PRIMARY.label}
           </button>
+        </div>
+
+        <div className="history-block">
+          <div className="history-block-head">
+            <span>Conversations</span>
+            <button className="history-new" onClick={startNewChat} title="Start a new conversation">
+              <IconPlus />
+            </button>
+          </div>
+          <div className="history-list">
+            {conversations.length === 0 && (
+              <p className="history-empty">Nothing yet — send a message to start one.</p>
+            )}
+            {conversations.map((c) => (
+              <div key={c.id} className={`history-item ${view === 'chat' && c.id === conversationId ? 'active' : ''}`}
+                   onClick={() => openConversation(c.id)} title={c.title}>
+                <span className="history-title">{c.title}</span>
+                <button className="history-del" onClick={(e) => removeConversation(c.id, e)} title="Delete this conversation">
+                  <IconTrash />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         <button className={`dev-toggle ${devOpen ? 'open' : ''}`} onClick={() => setDevOpen((o) => !o)}>
@@ -99,7 +142,8 @@ export default function App() {
       </aside>
 
       <main className="main">
-        {view === 'chat' && <Chat agents={agents} hostedOnly={hostedOnly} foundry={foundry} />}
+        {view === 'chat' && <Chat agents={agents} hostedOnly={hostedOnly} foundry={foundry}
+                                  conversationId={conversationId} onConversationsChanged={refreshConversations} />}
         {view === 'knowledge' && <Knowledge />}
         {view === 'search' && <Search />}
         {view === 'agents' && <Agents agents={agents} hostedOnly={hostedOnly} foundry={foundry}

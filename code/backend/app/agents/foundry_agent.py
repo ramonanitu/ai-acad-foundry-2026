@@ -125,6 +125,33 @@ def list_portal() -> list[dict]:
     return out
 
 
+def _model_params(persona: Persona) -> dict:
+    """Reasoning effort and token/temperature caps, translated into the fields
+    the Agent Service expects for a *run*. Without these, a hosted reasoning model
+    runs with no cap at all — it can spend its whole budget "thinking" and either
+    return a near-empty answer or time out, even though the persona file sets
+    reasoning_effort/max_tokens for exactly this reason (see local_agent.py,
+    which already applies them for the local lane).
+
+    Reasoning models (the gpt-5 family) only run at their fixed default
+    temperature — the Agent Service rejects the run outright ('invalid_prompt')
+    if a custom temperature is supplied for one. A persona with reasoning_effort
+    set is how we know it's a reasoning model, so temperature is omitted then.
+
+    Run-only: `reasoning_effort` and `max_completion_tokens` are Runs-API fields,
+    not Assistant fields — spreading this into a deploy (assistant create/update)
+    body gets rejected with 'Unknown parameter'. Only pass this to _run_thread's
+    run_params, never into deploy()/deploy_portal()'s body."""
+    params: dict = {}
+    if persona.temperature is not None and not persona.reasoning_effort:
+        params["temperature"] = persona.temperature
+    if persona.reasoning_effort:
+        params["reasoning_effort"] = persona.reasoning_effort
+    if persona.max_tokens:
+        params["max_completion_tokens"] = persona.max_tokens
+    return params
+
+
 def deploy_portal(persona: Persona, model: str | None = None) -> dict:
     """Publish the persona to the surface the portal shows.
 
@@ -269,7 +296,8 @@ def run(
             f"Deploy it first — POST /agents/{persona.name}/deploy, or "
             f"`python scripts/deploy_agent.py {persona.name}`."
         )
-    return _run_thread(agent_id, persona.name, question, chunks or [], history or [], no_evidence)
+    return _run_thread(agent_id, persona.name, question, chunks or [], history or [],
+                       no_evidence, run_params=_model_params(persona))
 
 
 def run_hosted(agent: dict, question: str, chunks: list[dict] | None = None,
@@ -281,12 +309,18 @@ def run_hosted(agent: dict, question: str, chunks: list[dict] | None = None,
 
 
 def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[dict],
-                history: list[dict] | None = None, no_evidence: bool = False) -> AgentReply:
+                history: list[dict] | None = None, no_evidence: bool = False,
+                run_params: dict | None = None) -> AgentReply:
     """The Agent Service protocol, in four calls.
 
     A thread is opened fresh on every call — the Agent Service has no notion of
     "this is the same conversation as last time" unless we tell it, so any prior
     turns the caller wants remembered are replayed into the new thread first.
+
+    `run_params` (reasoning_effort / temperature / max_completion_tokens) is applied
+    here as a per-run override rather than relying solely on what was set at deploy
+    time — it takes effect immediately, even against an assistant that was deployed
+    before this cap existed.
     """
     user = build_user_prompt(question, chunks, no_evidence=no_evidence)
 
@@ -298,7 +332,7 @@ def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[di
     _call("POST", f"threads/{thread_id}/messages",
           {"role": "user", "content": user})                                 # 2 ask
     run_obj = _call("POST", f"threads/{thread_id}/runs",
-                    {"assistant_id": agent_id})                              # 3 execute
+                    {"assistant_id": agent_id, **(run_params or {})})        # 3 execute
 
     deadline = time.time() + 180
     while run_obj.get("status") in ("queued", "in_progress", "requires_action"):
@@ -312,8 +346,13 @@ def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[di
         run_obj = _call("GET", f"threads/{thread_id}/runs/{run_obj['id']}")
 
     if run_obj.get("status") != "completed":
+        detail = (
+            run_obj.get("last_error")
+            or run_obj.get("incomplete_details")
+            or "no detail"
+        )
         raise FoundryUnavailable(
-            f"The run ended as '{run_obj.get('status')}': {run_obj.get('last_error') or 'no detail'}"
+            f"The run ended as '{run_obj.get('status')}': {detail}"
         )
 
     messages = _call("GET", f"threads/{thread_id}/messages")                 # 4 read

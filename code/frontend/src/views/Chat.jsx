@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { startRecording } from '../audio'
-import { Callout, IconMic, IconPause, IconSettings, IconStop, IconTrash, IconVolume, Switch } from '../components'
+import { Callout, IconMic, IconPause, IconSettings, IconStop, IconVolume, Switch } from '../components'
+import { loadConversations, saveConversation } from '../conversations'
 
 const PROMPTS = [
   'My card got frozen — what do I do?',
@@ -19,7 +20,9 @@ const AGENT_PROMPTS = {
   ],
 }
 
-export default function Chat({ agents, hostedOnly = [], foundry }) {
+// `conversationId` is owned by App (it's what the sidebar's history list selects
+// between); this component just loads/saves whatever is behind that id.
+export default function Chat({ agents, hostedOnly = [], foundry, conversationId, onConversationsChanged }) {
   const [messages, setMessages] = useState([])
   const [question, setQuestion] = useState('')
   const [agent, setAgent] = useState('default')
@@ -36,6 +39,30 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
   const recorderRef = useRef(null)
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, busy])
+
+  // Swap in whatever is saved under this id — a brand new id (from "New chat")
+  // simply has nothing saved yet, so this clears the transcript.
+  useEffect(() => {
+    const saved = loadConversations().find((c) => c.id === conversationId)
+    setMessages(saved?.messages || [])
+    setAgent(saved?.agent || 'default')
+    setAudioState({})
+    setQuestion('')
+  }, [conversationId])
+
+  // Persisted to localStorage after each exchange completes — the backend itself
+  // keeps nothing between calls (see /ask), so this is the only place a
+  // conversation survives a reload. `onConversationsChanged` tells the sidebar
+  // to re-read the list (new title, bumped recency).
+  function persist(nextMessages, nextAgent = agent) {
+    saveConversation(conversationId, nextAgent, nextMessages)
+    onConversationsChanged?.()
+  }
+
+  function changeAgent(name) {
+    setAgent(name)
+    persist(messages, name)
+  }
 
   const HISTORY_TURNS = 6   // last few exchanges sent back so the agent can follow up
 
@@ -54,14 +81,19 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
     const text = (text0 ?? question).trim()
     if (!text || busy) return
     const history = recentHistory()
+    const withUser = [...messages, { role: 'user', text }]
     setQuestion(''); setBusy(true)
-    setMessages((m) => [...m, { role: 'user', text }])
+    setMessages(withUser)
     try {
       const data = await api.ask({ question: text, use_rag: useRag, top_k: Number(topK),
                                   agent, agent_mode: mode, fact_check: factCheck, history })
-      setMessages((m) => [...m, { role: 'bot', data }])
+      const withReply = [...withUser, { role: 'bot', data }]
+      setMessages(withReply)
+      persist(withReply)
     } catch (e) {
-      setMessages((m) => [...m, { role: 'err', text: e.message }])
+      const withErr = [...withUser, { role: 'err', text: e.message }]
+      setMessages(withErr)
+      persist(withErr)
     } finally { setBusy(false) }
   }
 
@@ -166,7 +198,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
     <div className="chat-wrap">
       <div className="chat-topbar">
         <div className="chat-topbar-group">
-          <select value={agent} onChange={(e) => setAgent(e.target.value)} title="Choose which persona answers">
+          <select value={agent} onChange={(e) => changeAgent(e.target.value)} title="Choose which persona answers">
             {agents.map((a) => <option key={a.name} value={a.name}>{a.display_name}</option>)}
             {hostedOnly.length > 0 && (
               <optgroup label="hosted in Foundry only">
@@ -212,10 +244,6 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
             {current && <p className="faint" style={{ margin: 0 }}>{current.description} · temperature {current.temperature ?? '—'}</p>}
           </div>
         </details>
-
-        <button className="btn btn-outline btn-sm" onClick={() => setMessages([])} disabled={!messages.length}>
-          <IconTrash /> Clear chat
-        </button>
       </div>
 
       <div className="msgs">

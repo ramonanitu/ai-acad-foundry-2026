@@ -58,6 +58,22 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; }
 .nav-item.hero.active { background: var(--grad-warm); color: #fff; }
 .nav-item.hero .dot { display: none; }
 
+/* past conversations, saved in this browser — nested under the Libra Assist entry
+   point since they only mean anything in relation to it */
+.history-block { margin: .2rem 0 .5rem; }
+.history-block-head { display: flex; align-items: center; justify-content: space-between; padding: .4rem .6rem .3rem; font-size: .64rem; text-transform: uppercase; letter-spacing: .1em; color: var(--text-faint); font-weight: 700; }
+.history-new { background: none; border: 0; color: var(--text-faint); cursor: pointer; display: flex; padding: .2rem; border-radius: var(--r-xs); }
+.history-new:hover { color: var(--accent); background: var(--surface); }
+.history-list { display: flex; flex-direction: column; gap: .1rem; max-height: 32vh; overflow-y: auto; }
+.history-item { position: relative; display: flex; align-items: center; gap: .4rem; padding: .42rem .6rem; border-radius: var(--r-xs); cursor: pointer; color: var(--text-muted); font-size: .82rem; }
+.history-item:hover { background: var(--surface-2); color: var(--text); }
+.history-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.history-item .history-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-item .history-del { opacity: 0; flex: 0 0 auto; background: none; border: 0; cursor: pointer; color: var(--text-faint); padding: .15rem; display: flex; border-radius: var(--r-xs); }
+.history-item:hover .history-del { opacity: 1; }
+.history-item .history-del:hover { color: var(--c-crimson); }
+.history-empty { font-size: .74rem; color: var(--text-faint); padding: .2rem .6rem .4rem; line-height: 1.4; }
+
 /* developer tools recede — same functionality, quieter presentation */
 .nav-secondary { opacity: .82; }
 .nav-secondary .nav-item { font-size: .82rem; padding: .4rem .6rem; }
@@ -77,7 +93,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; }
 .card + .card { margin-top: 1rem; }
 .card h3 { font-size: 1rem; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } .app { grid-template-columns: 1fr; } .side { flex-direction: row; overflow-x: auto; align-items: center; } .nav-group { display: none; } .side-foot { display: none; } }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } .app { grid-template-columns: 1fr; } .side { flex-direction: row; overflow-x: auto; align-items: center; } .nav-group { display: none; } .side-foot { display: none; } .history-block { display: none; } }
 
 .badge { display: inline-flex; align-items: center; gap: .35em; font-size: .72rem; font-weight: 600; padding: .32em .7em; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
 .badge.gold { background: rgba(228,192,46,.18); color: var(--c-gold-ink); }
