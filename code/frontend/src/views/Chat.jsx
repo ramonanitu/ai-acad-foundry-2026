@@ -1,11 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { startRecording } from '../audio'
-import { Callout, IconMic, IconPause, IconSettings, IconStop, IconVolume, Switch } from '../components'
+import { Callout, IconAttach, IconFile, IconMic, IconPause, IconSettings, IconStop, IconVolume, IconX, Switch } from '../components'
 import { loadConversations, saveConversation } from '../conversations'
 
+// Only text can be read directly in the browser — there's no PDF/Word extraction
+// wired into this build (the backend has no such library either, see requirements.txt).
+// Anything else is rejected with an explicit reason rather than silently mangled.
+const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|log|ya?ml|xml|html?|js|jsx|ts|tsx|py|java|c|cpp|cs|go|rb|php|css|ini|conf|sql)$/i
+const MAX_FILES = 5
+const MAX_FILE_BYTES = 2 * 1024 * 1024       // 2 MB — plenty for a text file, not for a scan
+const MAX_CHARS_PER_FILE = 40000             // keeps one attachment from swamping the prompt
+
+function looksLikeText(file) {
+  if (file.type.startsWith('text/') || file.type === 'application/json') return true
+  if (!file.type) return TEXT_EXT.test(file.name)   // browser couldn't guess a MIME type
+  return TEXT_EXT.test(file.name)
+}
+
 const PROMPTS = [
-  'My card got frozen — what do I do?',
+  'My card got frozen - what do I do?',
   'Can I pay my mortgage back sooner?',
   'What happens if I break a term deposit early?',
 ]
@@ -14,7 +28,7 @@ const PROMPTS = [
 // Personas without an entry here fall back to the generic PROMPTS above.
 const AGENT_PROMPTS = {
   'ramona-nitu-agent': [
-    "I was charged a fee I don't think is fair — can someone review it?",
+    "I was charged a fee I don't think is fair - can someone review it?",
     "My complaint from last month still hasn't been resolved.",
     'A branch employee gave me the wrong information and it cost me money.',
   ],
@@ -34,9 +48,12 @@ export default function Chat({ agents, hostedOnly = [], foundry, conversationId,
   const [audioState, setAudioState] = useState({})   // { [messageIndex]: { status, url, playing, error } }
   const [micStatus, setMicStatus] = useState('idle')  // idle | recording | transcribing | error
   const [micError, setMicError] = useState(null)
+  const [attachments, setAttachments] = useState([])  // [{ name, text, chars, truncated }] — pending, not yet sent
+  const [attachError, setAttachError] = useState(null)
   const endRef = useRef(null)
   const audioRef = useRef(null)
   const recorderRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, busy])
 
@@ -48,6 +65,8 @@ export default function Chat({ agents, hostedOnly = [], foundry, conversationId,
     setAgent(saved?.agent || 'default')
     setAudioState({})
     setQuestion('')
+    setAttachments([])
+    setAttachError(null)
   }, [conversationId])
 
   // Persisted to localStorage after each exchange completes — the backend itself
@@ -81,12 +100,18 @@ export default function Chat({ agents, hostedOnly = [], foundry, conversationId,
     const text = (text0 ?? question).trim()
     if (!text || busy) return
     const history = recentHistory()
-    const withUser = [...messages, { role: 'user', text }]
-    setQuestion(''); setBusy(true)
+    // Sent to the API in full, but only name + size are kept in the transcript —
+    // the content already did its job in this turn's answer, and re-storing full
+    // file text in every saved conversation would bloat localStorage for nothing.
+    const attachmentsPayload = attachments.map(({ name, text }) => ({ name, text }))
+    const attachmentsMeta = attachments.map(({ name, chars }) => ({ name, chars }))
+    const withUser = [...messages, { role: 'user', text, attachments: attachmentsMeta }]
+    setQuestion(''); setAttachments([]); setAttachError(null); setBusy(true)
     setMessages(withUser)
     try {
       const data = await api.ask({ question: text, use_rag: useRag, top_k: Number(topK),
-                                  agent, agent_mode: mode, fact_check: factCheck, history })
+                                  agent, agent_mode: mode, fact_check: factCheck, history,
+                                  attachments: attachmentsPayload })
       const withReply = [...withUser, { role: 'bot', data }]
       setMessages(withReply)
       persist(withReply)
@@ -95,6 +120,48 @@ export default function Chat({ agents, hostedOnly = [], foundry, conversationId,
       setMessages(withErr)
       persist(withErr)
     } finally { setBusy(false) }
+  }
+
+  // Read dropped/selected files client-side (no upload round trip needed for plain
+  // text) and queue them as attachments for the next question. Anything that isn't
+  // text-like is rejected up front rather than sent as mangled binary content.
+  async function handleFiles(fileList) {
+    const files = Array.from(fileList || [])
+    if (!files.length) return
+    setAttachError(null)
+    const room = MAX_FILES - attachments.length
+    if (room <= 0) { setAttachError(`Up to ${MAX_FILES} files per question.`); return }
+
+    const accepted = []
+    for (const file of files.slice(0, room)) {
+      if (!looksLikeText(file)) {
+        setAttachError(`"${file.name}" was skipped — only text-based files (.txt, .md, .csv, ` +
+                       `.json, code, …) can be read here; PDF/Word aren't wired into this build.`)
+        continue
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        setAttachError(`"${file.name}" is over 2 MB and was skipped.`)
+        continue
+      }
+      try {
+        const raw = await file.text()
+        const truncated = raw.length > MAX_CHARS_PER_FILE
+        const suffix = '\n\n[…truncated]'
+        accepted.push({
+          name: file.name, chars: raw.length, truncated,
+          // Stay under the backend's max_length (40,000) including the suffix itself.
+          text: truncated ? raw.slice(0, MAX_CHARS_PER_FILE - suffix.length) + suffix : raw,
+        })
+      } catch {
+        setAttachError(`Could not read "${file.name}".`)
+      }
+    }
+    if (files.length > room) setAttachError(`Up to ${MAX_FILES} files per question — the rest were skipped.`)
+    if (accepted.length) setAttachments((a) => [...a, ...accepted])
+  }
+
+  function removeAttachment(name) {
+    setAttachments((a) => a.filter((f) => f.name !== name))
   }
 
   // One shared <audio> element — starting a new answer stops whatever was playing.
@@ -263,7 +330,20 @@ export default function Chat({ agents, hostedOnly = [], foundry, conversationId,
         )}
 
         {messages.map((m, i) => {
-          if (m.role === 'user') return <div className="msg user" key={i}>{m.text}</div>
+          if (m.role === 'user') return (
+            <div className="msg user" key={i}>
+              {m.text}
+              {m.attachments?.length > 0 && (
+                <div className="msg-attachments">
+                  {m.attachments.map((a) => (
+                    <span className="badge" key={a.name} title={`${a.chars} characters`}>
+                      <IconFile /> {a.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
           if (m.role === 'err') return (
             <div className="msg bot" key={i} style={{ padding: 0, border: 0, background: 'none' }}>
               <Callout tone="danger" title="That request failed">{m.text}</Callout>
@@ -384,7 +464,27 @@ export default function Chat({ agents, hostedOnly = [], foundry, conversationId,
           Couldn't use the microphone: {micError}
         </p>
       )}
+      {attachError && (
+        <p className="faint" style={{ margin: '0 0 .4rem', color: 'var(--c-crimson-ink)' }}>{attachError}</p>
+      )}
+      {attachments.length > 0 && (
+        <div className="attachments-row">
+          {attachments.map((a) => (
+            <span className="attachment-chip" key={a.name} title={`${a.chars} characters${a.truncated ? ' (truncated to 40,000)' : ''}`}>
+              <IconFile /> <span className="name">{a.name}</span>
+              <button onClick={() => removeAttachment(a.name)} title="Remove"><IconX /></button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="composer">
+        <input ref={fileInputRef} type="file" multiple hidden
+               onChange={(e) => { handleFiles(e.target.files); e.target.value = '' }} />
+        <button className="btn btn-outline" onClick={() => fileInputRef.current?.click()}
+                disabled={busy || attachments.length >= MAX_FILES}
+                title="Attach a file (text-based files only)">
+          <IconAttach />
+        </button>
         <button className={`btn btn-outline ${micStatus === 'recording' ? 'btn-recording' : ''}`}
                 onClick={toggleMic}
                 disabled={busy || micStatus === 'transcribing'}
@@ -392,7 +492,7 @@ export default function Chat({ agents, hostedOnly = [], foundry, conversationId,
           {micStatus === 'transcribing' ? <span className="spin" />
             : micStatus === 'recording' ? <IconStop /> : <IconMic />}
         </button>
-        <textarea value={question} placeholder="Ask Libra Assist…  (Enter to send, Shift+Enter for a new line)"
+        <textarea value={question} placeholder="Ask Libra Assist…"
                   onChange={(e) => setQuestion(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
         <button className="btn btn-primary" onClick={() => send()} disabled={busy || !question.trim()}>Send</button>

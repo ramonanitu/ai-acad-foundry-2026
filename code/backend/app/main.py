@@ -411,18 +411,22 @@ def ask(req: AskRequest) -> AskResponse:
 
     chunks = [h.model_dump() for h in retrieved]
     mode = mode_requested
+    attachments = [a.model_dump() for a in req.attachments]
 
     # ---- run the agent ------------------------------------------------------
     try:
         if hosted_only is not None:
             reply = foundry_agent.run_hosted(hosted_only, req.question, chunks,
-                                             history=history, no_evidence=no_evidence)
+                                             history=history, no_evidence=no_evidence,
+                                             attachments=attachments)
         elif mode == "foundry":
             reply = foundry_agent.run(persona, req.question, chunks,
-                                      history=history, no_evidence=no_evidence)
+                                      history=history, no_evidence=no_evidence,
+                                      attachments=attachments)
         else:
             reply = local_agent.run(persona, req.question, chunks, temperature=req.temperature,
-                                    history=history, no_evidence=no_evidence)
+                                    history=history, no_evidence=no_evidence,
+                                    attachments=attachments)
     except foundry_agent.FoundryUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:

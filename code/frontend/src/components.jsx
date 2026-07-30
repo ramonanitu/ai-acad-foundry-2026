@@ -55,6 +55,18 @@ export const IconStop = (p) => (
 )
 export const IconChevron = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6" /></Icon>
 export const IconPlus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>
+export const IconAttach = (p) => (
+  <Icon {...p}>
+    <path d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 0 1 5.19 5.19L9.66 17.65a1.83 1.83 0 0 1-2.6-2.6l8.49-8.48" />
+  </Icon>
+)
+export const IconFile = (p) => (
+  <Icon {...p}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+  </Icon>
+)
+export const IconX = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>
 
 /** A labeled on/off switch — used instead of a raw checkbox wherever the option
  *  needs to read as a deliberate, professional control rather than a form field. */

@@ -30,24 +30,33 @@ class AgentReply:
     completion_tokens: int | None = None
 
 
-def build_user_prompt(question: str, chunks: list[dict], no_evidence: bool = False) -> str:
+def build_user_prompt(
+    question: str,
+    chunks: list[dict],
+    no_evidence: bool = False,
+    attachments: list[dict] | None = None,
+) -> str:
     """Question alone, question + retrieved passages, or question + an explicit
     note that retrieval came up empty (candidates existed but none cleared the
     similarity floor — see `no_evidence` in main.py's /ask). That note keeps the
     persona in character and free to use the conversation history, while still
-    forbidding it from inventing the specific fact it wasn't given."""
+    forbidding it from inventing the specific fact it wasn't given.
+
+    Files the user attached to *this* question (see AskRequest.attachments) are
+    prepended ahead of everything else — they are user-supplied material, not
+    retrieved evidence, so they carry no citation requirement or score."""
     if chunks:
         context = "\n\n".join(
             f"[{i + 1}] (score {c['score']}) {c['text']}" for i, c in enumerate(chunks)
         )
-        return (
+        body = (
             "CONTEXT — retrieved passages, most similar first:\n"
             f"{context}\n\n"
             "QUESTION:\n"
             f"{question}"
         )
-    if no_evidence:
-        return (
+    elif no_evidence:
+        body = (
             "QUESTION:\n"
             f"{question}\n\n"
             "NOTE: A search of the knowledge base found candidate passages, but none scored "
@@ -57,7 +66,16 @@ def build_user_prompt(question: str, chunks: list[dict], no_evidence: bool = Fal
             "the conversation to decide what to do next (e.g. ask a clarifying question, or say "
             "which team/channel can help)."
         )
-    return question
+    else:
+        body = question
+
+    if attachments:
+        files = "\n\n".join(f"--- {a['name']} ---\n{a['text']}" for a in attachments)
+        return (
+            "ATTACHED FILES — shared by the user alongside this question, not retrieved "
+            f"or verified:\n{files}\n\n{body}"
+        )
+    return body
 
 
 def run(
@@ -67,10 +85,11 @@ def run(
     temperature: float | None = None,
     history: list[dict] | None = None,
     no_evidence: bool = False,
+    attachments: list[dict] | None = None,
 ) -> AgentReply:
     chunks = chunks or []
     system = persona.system_prompt(grounded=bool(chunks))
-    user = build_user_prompt(question, chunks, no_evidence=no_evidence)
+    user = build_user_prompt(question, chunks, no_evidence=no_evidence, attachments=attachments)
 
     # precedence: explicit request value > persona file > .env default
     temp = temperature if temperature is not None else (

@@ -281,6 +281,7 @@ def run(
     agent_id: str | None = None,
     history: list[dict] | None = None,
     no_evidence: bool = False,
+    attachments: list[dict] | None = None,
 ) -> AgentReply:
     """Invoke the hosted agent for this persona.
 
@@ -297,20 +298,21 @@ def run(
             f"`python scripts/deploy_agent.py {persona.name}`."
         )
     return _run_thread(agent_id, persona.name, question, chunks or [], history or [],
-                       no_evidence, run_params=_model_params(persona))
+                       no_evidence, run_params=_model_params(persona), attachments=attachments)
 
 
 def run_hosted(agent: dict, question: str, chunks: list[dict] | None = None,
-               history: list[dict] | None = None, no_evidence: bool = False) -> AgentReply:
+               history: list[dict] | None = None, no_evidence: bool = False,
+               attachments: list[dict] | None = None) -> AgentReply:
     """Invoke a hosted agent that has no local persona file — its instructions
     live in Foundry, so there is nothing to compose on our side."""
     return _run_thread(agent["agent_id"], agent["name"], question, chunks or [],
-                       history or [], no_evidence)
+                       history or [], no_evidence, attachments=attachments)
 
 
 def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[dict],
                 history: list[dict] | None = None, no_evidence: bool = False,
-                run_params: dict | None = None) -> AgentReply:
+                run_params: dict | None = None, attachments: list[dict] | None = None) -> AgentReply:
     """The Agent Service protocol, in four calls.
 
     A thread is opened fresh on every call — the Agent Service has no notion of
@@ -322,7 +324,7 @@ def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[di
     time — it takes effect immediately, even against an assistant that was deployed
     before this cap existed.
     """
-    user = build_user_prompt(question, chunks, no_evidence=no_evidence)
+    user = build_user_prompt(question, chunks, no_evidence=no_evidence, attachments=attachments)
 
     thread = _call("POST", "threads", {})                                    # 1 open
     thread_id = thread["id"]

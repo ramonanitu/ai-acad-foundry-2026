@@ -116,6 +116,15 @@ class ChatMessage(BaseModel):
 
 
 MAX_HISTORY_TURNS = 12  # server-side cap — the client may send more, only the tail is used
+MAX_ATTACHMENTS = 5     # server-side cap — mirrors the frontend's own limit
+
+
+class Attachment(BaseModel):
+    name: str = Field(..., max_length=200, description="Original file name, shown back verbatim")
+    text: str = Field(
+        ..., max_length=40000,
+        description="Extracted text content — already truncated client-side if the file was longer",
+    )
 
 
 class AskRequest(BaseModel):
@@ -160,6 +169,12 @@ class AskRequest(BaseModel):
         default_factory=list,
         description="Check against these pages instead of searching — deterministic, and "
                     "immune to search rate limits during a demo.",
+    )
+    attachments: list[Attachment] = Field(
+        default_factory=list, max_length=MAX_ATTACHMENTS,
+        description="Files the user attached to this question — text already extracted "
+                    "client-side. Folded into the prompt for this turn only; not replayed "
+                    "on later turns via `history`.",
     )
 
 

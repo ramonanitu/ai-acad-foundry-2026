@@ -173,6 +173,14 @@ pre.out { background: var(--code-bg); border: 1px solid var(--border); border-ra
 .composer .btn-primary { height: 48px; padding: 0 1.3rem; }
 .composer .btn-outline { height: 48px; width: 48px; padding: 0; flex: 0 0 auto; }
 
+.attachments-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.attachment-chip { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--border-strong); background: var(--surface-inset); color: var(--text-muted); border-radius: var(--r-pill); padding: .3rem .5rem .3rem .8rem; font-size: .78rem; max-width: 16rem; }
+.attachment-chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-chip button { display: inline-flex; align-items: center; justify-content: center; width: 1.2rem; height: 1.2rem; border-radius: 50%; border: none; background: none; color: inherit; cursor: pointer; flex: 0 0 auto; }
+.attachment-chip button:hover { background: var(--surface-2); color: var(--c-crimson-ink); }
+.msg-attachments { display: flex; gap: .35rem; flex-wrap: wrap; justify-content: flex-end; margin-top: .4rem; }
+.msg-attachments .badge { background: rgba(255,255,255,.18); color: #fff; }
+
 .welcome { align-self: center; max-width: 40rem; text-align: center; margin: auto 0; padding: 2rem 1.6rem; }
 .welcome .mark-lg { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: var(--r); background: var(--grad-warm); color: #fff; font-weight: 800; font-size: 1.35rem; margin-bottom: .8rem; }
 .chips { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; margin-top: 1rem; }

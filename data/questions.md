@@ -124,3 +124,122 @@ at the end.
 - **Precise numbers and date/version reasoning are the strong suit** — every question needing an exact figure (3%, 5,000 lei, 10 business days, 15 vs. 45 days) or a version/date comparison (B1, B4) came back right, including one case (B1) where the honest answer was "this is ambiguous," not a guess.
 - **The recurring failure is retrieval, not generation** — A5 and B2 both had the right document in the corpus but not in the top-4, and the assistant correctly said "I don't know" rather than fabricating. This is exactly what Part 5's `min_score` is for in the *refuse-when-nothing-relevant* sense, but it doesn't help when a *relevant* document simply loses the top-k race to less relevant ones. A better `top_k`, re-ranking, or chunk-context prefixing (flagged already in `NOTES.md` Part 4) is the direct fix.
 - **C3 is the one true "confident wrong answer"** — worth keeping in the eval set permanently, since it shows retrieval doing its job (the disclaimer chunk was there) while generation still failed to weight it correctly against a same-topic but wrong-context chunk.
+
+---
+
+## D · Same 15 questions, `agent: ramona-nitu-agent` ("Complaints Specialist")
+
+Re-ran all 15 questions through `/ask` unchanged (`use_rag: true`, `top_k=4`,
+`min_score=0.4`) with only `agent` switched from `default` to `ramona-nitu-agent`
+— the empathetic, de-escalation-focused persona defined in
+`app/agents/personas/ramona-nitu-agent.json`. Retrieval settings are identical to
+Part 6, so this isolates what a **persona/system-prompt change** affects
+(generation, tone, refusal discipline) from what it can't touch (retrieval —
+same embeddings, same Qdrant search, same scores).
+
+**Scoreboard**
+
+| Group | Correct | Partial | Wrong | Refused correctly | Refused incorrectly |
+|---|---|---|---|---|---|
+| A · Simple retrieval (7) | 5 | 0 | 0 | 0 | — |
+| — retrieval miss, honestly flagged | 1 (A5) | | | | |
+| — incomplete answer | 1 (A1) | | | | |
+| B · Multi-step (5) | 3 | 2 | 0 | — | — |
+| C · Must refuse (3) | — | — | 2 (C2, C3) | 1 (C1) | — |
+
+The group tallies for **A look identical to the `default` run**, which is the
+expected result — retrieval doesn't depend on persona, so the same two
+retrieval misses (A1, A5) reproduce exactly. **Group C got worse**: C2 flipped
+from a weak hedge (default) to an outright non-refusal.
+
+### A · Simple retrieval
+
+- **A1** — same retrieval miss as `default`: only 2 of 5 channels scored into
+  top-4 (`complaints-channels` 0.7534 and 0.7043). The agent named the two it
+  had and explicitly said "the full list of five channels is not included in
+  the retrieved passages" rather than guessing. **Incomplete**, same cause.
+- **A2** — "Acknowledgment for a fraud complaint must be sent the same business
+  day the bank receives it." **Correct.**
+- **A3** — "The goodwill uplift is 3% of the documented financial loss, with a
+  cap of 5,000 lei per complaint." **Correct**, exact figures preserved.
+- **A4** — "You can request a reopening up to 10 business days after the bank's
+  closing letter" — correct core fact, then the same kind of unprompted,
+  slightly confusing aside about survey timing the `default` run also produced.
+  **Correct**, still murkier than it needs to be.
+- **A5** — "The excerpts you provided do not say how long Libra Bank retains
+  the record of a fraud-related complaint" — `complaints-record-keeping.md`
+  again didn't make top-4. **Refused when it should have answered — same
+  retrieval miss as `default`.**
+- **A6** — "No — a Facebook direct message or comment does not file a formal
+  complaint... you'll be asked to file through one of the bank's five official
+  channels." **Correct.**
+- **A7** — "From 15 January 2026 the waiting period is 15 business days,"
+  correctly contrasted with the superseded 45-calendar-day rule. **Correct.**
+
+### B · Multi-step
+
+- **B1** — *Regression.* Where `default` explicitly flagged that the corpus
+  doesn't resolve which rule governs a complaint logged in the 1–14 Jan 2026
+  gap, `ramona-nitu-agent` picked one side confidently instead: "the new
+  15-business-day referral rule... does not apply to your case," computed
+  45 calendar days from 2 Jan as "16 February 2026," and never plainly answered
+  whether the resolution target was actually missed (hedged with "if no
+  extension was given... would already be missed"). Not a hallucinated fact —
+  every number it used is real — but it lost the honest ambiguity-flagging the
+  same underlying retrieval supported under `default`. **Partial, and worse
+  than `default`'s answer to the same question.**
+- **B2** — Same pattern as `default`: goodwill half correct ("you are not
+  eligible for a goodwill payment... a rejected complaint is never eligible,
+  even if you disagree with the decision"), escalation half honestly blank
+  because `complaints-escalation-procedure.md` didn't make top-4 again.
+  **Partial, same retrieval-miss cause as `default`.**
+- **B3** — "You would receive 1,236 lei in total: the 1,200 lei refund...
+  plus a 3% goodwill uplift of 36 lei." **Correct.**
+- **B4** — "Your complaint stays under the 2025 complaints policy... the case
+  continues under the rules it started with." **Correct.**
+- **B5** — "the resolution clock can be paused rather than kept running... You
+  will also be assigned a single dedicated contact for the life of the
+  complaint." Both halves right, including "paused, not just extended."
+  **Correct.**
+
+### C · Must refuse
+
+- **C1** — "Libra Bank does not offer student loans, so there is no interest
+  rate for a 'Libra Bank student loan.'" **Refused correctly**, same as
+  `default`.
+- **C2** — *Regression, worse than `default`.* `complaints-out-of-scope` was
+  retrieved twice in the top-4 (0.5972, 0.586) — same evidence `default` had
+  when it hedged. This persona didn't hedge; it never once stated that Libra
+  Bank has no cryptocurrency trading platform. Instead it framed the situation
+  as an ordinary complaint and told the customer to "submit that as a formal
+  complaint... so they can investigate whether there was an execution error,
+  system failure, mis-advice or other bank fault that could lead to
+  compensation" — inviting a claim against a product that, per the bank's own
+  out-of-scope policy, doesn't exist. **Wrong — should have refused, and is a
+  step down from `default`'s weak-but-partial hedge.**
+- **C3** — Same failure as `default`: confidently applied the general goodwill
+  formula ("reimburse your documented financial loss in full and add a
+  goodwill payment... capped at 5,000 lei") to a brokerage account complaint,
+  even though `complaints-out-of-scope` was retrieved (3rd of 4, 0.5712) and
+  says brokerage/investment accounts aren't a Libra Bank product. **Wrong,
+  same generation-level cause as `default`.**
+
+### What the persona swap shows
+
+- **Retrieval is persona-blind, as expected.** A1, A5, and B2's escalation
+  half fail identically under both personas because `agent` never touches
+  embeddings or the Qdrant query — only `min_score`/`top_k`/`filters` would.
+- **The Complaints Specialist persona trades refusal discipline for
+  "always give a next step."** Its own style rule — "Always end with the
+  concrete next action the customer themselves should take" — appears to be
+  in direct tension with `refuse_when_unsupported`. On C2 it produced a next
+  step (file a complaint, gather evidence) that shouldn't exist at all; on B1
+  it resolved an ambiguity the corpus doesn't resolve rather than surfacing it,
+  presumably because "here's what you should do" is a more satisfying answer
+  to produce than "this is genuinely unclear." `default`'s plainer, more
+  clinical system prompt didn't have that pull.
+- **C3 is persona-independent** — worth treating as the strongest evidence
+  that the fix belongs in retrieval/ranking (re-ranking, or making the
+  out-of-scope chunk win ties on topic-adjacent-but-wrong-product questions),
+  not in any one persona's wording, since two very differently-worded system
+  prompts made the identical mistake off the identical retrieved set.

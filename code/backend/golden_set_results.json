@@ -1,0 +1,527 @@
+[
+  {
+    "id": "A1",
+    "question": "What are the five channels through which a customer can file a complaint with Libra Bank?",
+    "status_code": 200,
+    "answer": "From the passages provided I can confirm two of the five official complaint channels and one channel that is not valid. The full list of five channels is not included in the retrieved passages.\n\nKnown valid channels:\n- Mobile app — Menu → Support → \"File a complaint.\" Lets you attach documents and gives a tracking number immediately [1].\n- Call centre — 0800 123 400 (free from Romanian numbers). Available Mon–Sat 08:00–20:00 [1].\n\nNot a valid complaints channel:\n- Social media (comments or direct messages on Facebook, Instagram, X) is not logged as a formal complaint and won’t start the SLA clock; you’ll be asked to file through one of the bank’s five channels instead [2].\n\nWhat I can’t answer from these passages:\n- The other three complaint channels and the bank’s response time (SLA) are not listed in the provided excerpts.\n\nNext step you should take:\n- If you want to file a complaint now, use the mobile app (Menu → Support → File a complaint) to attach evidence and receive a tracking number immediately [1]. If you prefer phone, call 0800 123 400 during Mon–Sat 08:00–20:00 [1]. If you need the complete list of all five channels or the SLA for responses, check the bank’s complaints page on its website or ask the agent when you file the complaint through the app or call centre — those sources contain the full details that aren’t in the passages I was given.",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-channels",
+        "score": 0.7534,
+        "index": 0
+      },
+      {
+        "source": "complaints-channels",
+        "score": 0.7043,
+        "index": 3
+      },
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.6748,
+        "index": 4
+      },
+      {
+        "source": "complaints-overview",
+        "score": 0.6639,
+        "index": 0
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 952,
+      "completion_tokens": 1025
+    }
+  },
+  {
+    "id": "A2",
+    "question": "What is the acknowledgment deadline for a fraud complaint under the current complaints policy?",
+    "status_code": 200,
+    "answer": "Acknowledgment for a fraud complaint must be sent the same business day the bank receives it [2].\n\nAfter that, the Fraud & Security team investigates and reaches a provisional decision within 5 business days (there is no extension path for fraud) [4].\n\nThe passages provided do not include the bank’s phone number or the specific channel to report fraud. To trigger that same‑day acknowledgment, contact the bank immediately using the published fraud-reporting channel (check the bank’s website, your statement, or call your local branch for the fraud number). Once you do, the bank will acknowledge the complaint the same business day and the fraud team aims to reach a provisional decision within 5 business days of the complaint being logged [2][4].",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-policy-2025",
+        "score": 0.5735,
+        "index": 1
+      },
+      {
+        "source": "complaints-policy-2026",
+        "score": 0.5666,
+        "index": 0
+      },
+      {
+        "source": "complaints-sla-table",
+        "score": 0.5502,
+        "index": 0
+      },
+      {
+        "source": "complaints-fraud-vs-dispute",
+        "score": 0.5288,
+        "index": 4
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 978,
+      "completion_tokens": 1054
+    }
+  },
+  {
+    "id": "A3",
+    "question": "What is the goodwill uplift percentage for a proven financial loss complaint, and what is the cap?",
+    "status_code": 200,
+    "answer": "The goodwill uplift is 3% of the documented financial loss, with a cap of 5,000 lei per complaint [2]. Payments are credited to the customer's Libra Bank current account within 5 business days of the decision letter [3].\n\nThe retrieved passages do not include how to submit a complaint or the complaints contact details. To have this applied to your case, file a complaint with Libra Bank’s complaints team (via the bank’s complaints web page, your local branch, or the bank’s customer‑service phone line). Once you submit a complaint and it’s accepted, the goodwill payment (if awarded) will be credited within 5 business days of the decision letter [3].",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-vulnerable-customers",
+        "score": 0.6308,
+        "index": 5
+      },
+      {
+        "source": "complaints-goodwill-amounts",
+        "score": 0.6035,
+        "index": 2
+      },
+      {
+        "source": "complaints-goodwill-amounts",
+        "score": 0.6,
+        "index": 3
+      },
+      {
+        "source": "complaints-goodwill-amounts",
+        "score": 0.5977,
+        "index": 0
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 941,
+      "completion_tokens": 852
+    }
+  },
+  {
+    "id": "A4",
+    "question": "Within how many business days can a customer reopen a closed complaint after the satisfaction survey?",
+    "status_code": 200,
+    "answer": "You can request a reopening up to 10 business days after the bank’s closing letter [1]. Libra sends the short satisfaction survey within 1 business day of that closing letter [2], so in most cases you will have at least nine business days after you receive the survey to ask for a reopening. If the survey arrives the same day as the closing letter, you may have the full 10 business days from receipt to request reopening [1][2].\n\nNext step: follow the reopen instructions in your closing letter or contact the complaints team using the same channel you originally used. The passages provided don’t give a specific phone number or form. If you miss the 10-business-day window, file a new complaint and reference the old tracking number [1].",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-satisfaction-survey",
+        "score": 0.6198,
+        "index": 2
+      },
+      {
+        "source": "complaints-satisfaction-survey",
+        "score": 0.612,
+        "index": 0
+      },
+      {
+        "source": "complaints-ombudsman-2026",
+        "score": 0.611,
+        "index": 3
+      },
+      {
+        "source": "complaints-policy-2025",
+        "score": 0.5909,
+        "index": 1
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 943,
+      "completion_tokens": 1506
+    }
+  },
+  {
+    "id": "A5",
+    "question": "How long does Libra Bank retain the record of a fraud-related complaint?",
+    "status_code": 200,
+    "answer": "The excerpts you provided do not say how long Libra Bank retains the record of a fraud-related complaint.\n\nWhat the excerpts do say:\n- Fraud cases require a provisional decision (block, reimburse, or refer to criminal investigation) within 5 business days even if a police report is pending [1].  \n- Every complaint gets a complaint record (even same‑day resolutions) because the bank reports complaint volumes to the National Bank of Romania [2].  \n- There are eligibility and filing rules for complaints (e.g. 6‑month rule for some remedies) [3].  \n- If a complaint is logged and no final written decision is issued, the customer may refer the matter to CSALB after 15 business days for complaints logged from 15 Jan 2026 onward [4].\n\nNext steps you should take\n- Contact Libra Bank’s complaints team or the bank’s Data Protection Officer and ask explicitly: (a) the retention period for fraud‑related complaint records, and (b) how to request a copy of the complaint file. The policy excerpts you gave do not include the retention period or a response timeline for such a request, so the complaints team/DPO is the right place to get the definitive answer.  \n- If you log a formal complaint and you haven’t received a final written decision within 15 business days, you may refer it to CSALB (Financial Consumer Ombudsman) per the policy cited [4].\n\nI cannot access accounts or make the request for you; use the bank’s published complaints channel (phone, secure message in internet banking, or visit a branch) to ask for the retention period and a copy of the record.",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-sla-table",
+        "score": 0.6598,
+        "index": 6
+      },
+      {
+        "source": "complaints-overview",
+        "score": 0.6547,
+        "index": 4
+      },
+      {
+        "source": "complaints-eligibility-goodwill",
+        "score": 0.6464,
+        "index": 2
+      },
+      {
+        "source": "complaints-ombudsman-2026",
+        "score": 0.6426,
+        "index": 0
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 881,
+      "completion_tokens": 1753
+    }
+  },
+  {
+    "id": "A6",
+    "question": "Can a customer file a formal complaint with Libra Bank through a Facebook direct message?",
+    "status_code": 200,
+    "answer": "No — a Facebook direct message or comment does not file a formal complaint. Libra’s social media team may reply for goodwill, but messages there are not logged as formal complaints and do not start the bank’s SLA clock; they will ask you to file through one of the bank’s five official channels [1].\n\nUse one of the official channels instead. The mobile app (Menu → Support → “File a complaint”) lets you attach documents and gives an immediate tracking number. You can also call the complaints line on 0800 123 400 (free from Romanian numbers), Mon–Sat 08:00–20:00. All five channels carry equal weight — the app isn’t treated as inherently faster, but it does provide an immediate tracking number and is convenient for evidence [3].\n\nNext step: file the complaint through the mobile app (Menu → Support → “File a complaint”) or call 0800 123 400 in the hours above. Once you file through an official channel the bank will log it and the SLA clock will start [1]. The retrieved passages do not state the specific response times or SLA length, so I can’t quote that here.",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-channels",
+        "score": 0.7374,
+        "index": 3
+      },
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.6797,
+        "index": 4
+      },
+      {
+        "source": "complaints-channels",
+        "score": 0.6652,
+        "index": 0
+      },
+      {
+        "source": "complaints-overview",
+        "score": 0.6611,
+        "index": 0
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 951,
+      "completion_tokens": 1590
+    }
+  },
+  {
+    "id": "A7",
+    "question": "What is the waiting period before a customer can escalate an unresolved complaint to CSALB under the current rule?",
+    "status_code": 200,
+    "answer": "From 15 January 2026 the waiting period is 15 business days: you may refer an unresolved complaint to CSALB (the Financial Consumer Ombudsman) once 15 business days have passed from the date the complaint was logged with Libra Bank and you have not received a final written decision [3].\n\nIf your complaint was logged before 15 January 2026, the earlier rule applied (45 calendar days) — the 15-business-day figure only applies to complaints logged from 15 January 2026 onward [2][1].\n\nNext action: if 15 business days have passed since you lodged the complaint and you still haven’t received a final written decision, you can refer the matter to CSALB. The provided passages do not include CSALB contact details or the external referral form, so check CSALB’s website or the complaint pack you were given for how to submit the referral. When you refer, have your Libra complaint reference and copies of any correspondence ready (if you need to file a new complaint with the bank instead, reference the old tracking number) [4].",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-policy-2026",
+        "score": 0.7148,
+        "index": 3
+      },
+      {
+        "source": "complaints-ombudsman-2025",
+        "score": 0.6877,
+        "index": 0
+      },
+      {
+        "source": "complaints-ombudsman-2026",
+        "score": 0.6728,
+        "index": 0
+      },
+      {
+        "source": "complaints-satisfaction-survey",
+        "score": 0.6332,
+        "index": 2
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 921,
+      "completion_tokens": 1831
+    }
+  },
+  {
+    "id": "B1",
+    "question": "I filed a fees complaint on 2 January 2026 and it is now 20 business days later with no response. Has the resolution target been missed, and how many more business days before I can escalate to CSALB?",
+    "status_code": 200,
+    "answer": "Because your complaint was logged on 2 January 2026, the new 15-business-day referral rule that starts on 15 January 2026 does not apply to your case [1]. For complaints logged before 15 January 2026 the bank was operating to the earlier timetable: an internal resolution target of 30 calendar days, with a possible written extension of up to 15 calendar days (so up to 45 calendar days in total). External referral to CSALB under that earlier rule becomes available once 45 calendar days have passed without a final written decision [3][4].\n\nI can’t check your file, so I can’t confirm whether the bank has already issued a final decision or sent you a written extension. If no extension was given and you still have no final decision, the bank’s 30‑day target would already be missed; you may refer to CSALB once 45 calendar days from 2 January have passed. 45 calendar days from 2 January 2026 is 16 February 2026 [3][4].\n\nYou said 20 business days have passed. Assuming a normal Mon–Fri workweek and no public holidays, 20 business days is about 28 calendar days, so you would typically have roughly 17 calendar days left until 45 days elapse — which is about 12–13 more business days depending on how weekends and any public holidays fall.\n\nNext steps (what you should do now)\n- Contact the bank’s complaints team and ask (1) whether a written extension was issued for your file and (2) for an update or final decision. Complaints can be raised via the mobile app, call centre, branch or post (email was introduced in 2026) — use whichever channel you used originally to keep the record consistent [4].  \n- Expect the bank to acknowledge a new contact within 5 business days and to explain whether the internal timescales or an extension apply to your complaint [3].  \n- If no final decision is issued by 16 February 2026 (45 calendar days from 2 January) you may refer the matter to CSALB (the Financial Consumer Ombudsman) [4]. If you want an internal escalation first (supervisor → Head of Complaints → then CSALB), ask the complaints team to escalate your file under the bank’s escalation procedure [2].\n\nIf you’d like, tell me which channel you’ll use to contact complaints and I’ll remind you what to ask for and what to quote in that contact.",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-ombudsman-2026",
+        "score": 0.6246,
+        "index": 0
+      },
+      {
+        "source": "complaints-satisfaction-survey",
+        "score": 0.6103,
+        "index": 2
+      },
+      {
+        "source": "complaints-policy-2025",
+        "score": 0.6026,
+        "index": 1
+      },
+      {
+        "source": "complaints-policy-2025",
+        "score": 0.5967,
+        "index": 2
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 973,
+      "completion_tokens": 2957
+    }
+  },
+  {
+    "id": "B2",
+    "question": "My mis-selling complaint was rejected after Libra Bank investigated the facts, and I accept those facts — I just disagree with the outcome. What should I do next, and am I eligible for a goodwill payment?",
+    "status_code": 200,
+    "answer": "Because your complaint was rejected, you are not eligible for a goodwill payment. The bank’s policy says a goodwill payment is only payable when a complaint is upheld or partially upheld — a rejected complaint is never eligible, even if you disagree with the decision [1][3].\n\nGoodwill also requires the root cause to be a proven bank error or failure (processing mistake, system outage, missed deadline, or incorrect information from staff) — eligibility needs both the upheld outcome and a bank fault, decided separately from any payment amount [1][3][4].\n\nIf you still disagree with the outcome: the excerpts provided don’t include the bank’s internal appeal steps, complaint contact details, or the timescales for escalation to an external adjudicator. The passages do note that the bank can log/forward sale-related complaints (mis‑selling) and that some dispute types (for example insurer claim decisions) are handled by the insurer rather than the bank [2]. \n\nNext step you should take: contact the bank’s complaints team (by the channel you used originally or the complaints contact given in your paperwork) and ask for a written final response that explains:\n- whether the decision was the bank’s final response, and  \n- how to request an internal review or how to escalate externally (and the deadlines for doing so).\n\nThe supplied policy excerpts do not give the contact details or the exact timelines for escalation, so ask the complaints team for those in the final response.",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-eligibility-goodwill",
+        "score": 0.7174,
+        "index": 1
+      },
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.6775,
+        "index": 4
+      },
+      {
+        "source": "complaints-eligibility-goodwill",
+        "score": 0.6666,
+        "index": 0
+      },
+      {
+        "source": "complaints-goodwill-amounts",
+        "score": 0.639,
+        "index": 0
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 923,
+      "completion_tokens": 1966
+    }
+  },
+  {
+    "id": "B3",
+    "question": "A customer's card transaction was disputed for 1200 lei due to a confirmed Libra Bank processing error. How much will they receive in total, including any goodwill payment?",
+    "status_code": 200,
+    "answer": "You would receive 1,236 lei in total: the 1,200 lei refund of the documented loss plus a 3% goodwill uplift of 36 lei (3% × 1,200 = 36) [1].\n\nGoodwill and any refund are credited directly to your Libra Bank current account within 5 business days of the decision letter [3]. For card disputes over 50 lei you may also have been given a provisional credit within 5 business days while the investigation continued [2].\n\nIf you already have the bank’s decision letter, allow up to 5 business days for the credit to appear. If you haven’t received a decision or need a status update, contact the bank’s complaints team (the retrieved passages don’t include the specific phone number or web link). Use the complaints page on the bank website, call customer service, or visit a branch and ask for an update on your dispute; once the decision is issued the payment will be credited within 5 business days [3].",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-goodwill-amounts",
+        "score": 0.7203,
+        "index": 2
+      },
+      {
+        "source": "complaints-card-disputes-procedure",
+        "score": 0.6708,
+        "index": 4
+      },
+      {
+        "source": "complaints-goodwill-amounts",
+        "score": 0.6538,
+        "index": 3
+      },
+      {
+        "source": "complaints-eligibility-goodwill",
+        "score": 0.6387,
+        "index": 0
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 948,
+      "completion_tokens": 1301
+    }
+  },
+  {
+    "id": "B4",
+    "question": "I filed a complaint on 20 December 2025 and it is still open on 20 January 2026. Does the 2025 policy or the 2026 policy govern my resolution deadline?",
+    "status_code": 200,
+    "answer": "Your complaint stays under the 2025 complaints policy. Because it was logged on 20 December 2025 and was still open when the new policy took effect, the case continues under the rules it started with [1].\n\nWhat that means for timings:\n- The bank should have acknowledged a new complaint within 5 business days under the 2025 policy.  \n- The general resolution target under the 2025 policy was 30 calendar days from the day the complaint was logged.  \n- If needed, the bank could extend that by up to 15 calendar days but only with written notice to you [2].\n\nIf you want an update or to escalate, contact the bank’s complaints team using the same channel you used to file the complaint (phone/branch/secure message/online form). Ask them for:\n- the current status; and  \n- the expected resolution date under the 2025 timeline (30 days from 20 Dec 2025, or any stated 15‑day extension in writing).\n\nIf you need instructions for a further external escalation (for example, an ombudsman), the passages you supplied don’t include the specific escalation contact details, so please ask the complaints team for the formal next‑step and timescale or check the bank’s published complaints page for the ombudsman contact.",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-policy-2026",
+        "score": 0.7328,
+        "index": 4
+      },
+      {
+        "source": "complaints-policy-2025",
+        "score": 0.6828,
+        "index": 1
+      },
+      {
+        "source": "complaints-ombudsman-2026",
+        "score": 0.682,
+        "index": 1
+      },
+      {
+        "source": "complaints-ombudsman-2025",
+        "score": 0.6634,
+        "index": 2
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 938,
+      "completion_tokens": 1491
+    }
+  },
+  {
+    "id": "B5",
+    "question": "A vulnerable customer's fees complaint needs more time because they are gathering documents with help from a family member. Does the normal resolution clock keep running, and do they get a single dedicated contact?",
+    "status_code": 200,
+    "answer": "Because they need time to gather documents, the resolution clock can be paused rather than kept running. The clock resumes only when the customer confirms they are ready to continue [1].\n\nYou will also be assigned a single dedicated contact for the life of the complaint, so you do not have to re‑explain the issue each time you call [3].\n\nIf the bank instead chooses to extend the resolution target (not pause), it must tell you in writing before the original deadline, giving the new deadline and the reason; internal rules also mean extensions should be flagged by the halfway point so you are told earlier if the case will run long [2][4].\n\nThe passages provided do not include the bank’s phone numbers or web form links, so I can’t give a specific contact method here. Next step for you: contact the complaints team using the channel you used before (phone, secure message, or in‑branch). Tell them you need the resolution clock paused while you gather documents with help, ask them to confirm who your dedicated contact is, and agree how you will notify them when you are ready. Once you tell them you are ready, the resolution clock will resume; if they instead extend, they must write to you before the original deadline with the new date and reason [1][2].",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-vulnerable-customers",
+        "score": 0.6507,
+        "index": 3
+      },
+      {
+        "source": "complaints-sla-table",
+        "score": 0.5637,
+        "index": 5
+      },
+      {
+        "source": "complaints-vulnerable-customers",
+        "score": 0.5574,
+        "index": 2
+      },
+      {
+        "source": "complaints-policy-2026",
+        "score": 0.557,
+        "index": 3
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 919,
+      "completion_tokens": 1422
+    }
+  },
+  {
+    "id": "C1",
+    "question": "What is the interest rate on Libra Bank's student loans?",
+    "status_code": 200,
+    "answer": "Libra Bank does not offer student loans, so there is no interest rate for a “Libra Bank student loan.” [1]\n\nMost complaints about a “Libra Bank student loan” are a mix‑up with another lender or a government loan program; staff are instructed to say that rather than open a case. [1]\n\nNext steps: check your loan paperwork or the statements you received to find the name and contact details of the lender or government loan servicer, and raise the question or complaint with them using the contact information on those documents. The provided passages do not include contact details or the complaint timelines for other lenders or servicers, so you will need to follow that provider’s complaints process and timelines.",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.6328,
+        "index": 1
+      },
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.5208,
+        "index": 3
+      },
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.4998,
+        "index": 2
+      },
+      {
+        "source": "complaints-goodwill-amounts",
+        "score": 0.4922,
+        "index": 3
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 895,
+      "completion_tokens": 1050
+    }
+  },
+  {
+    "id": "C2",
+    "question": "I want to complain about a bad trade I made through Libra Bank's cryptocurrency trading platform. How do I get compensated?",
+    "status_code": 200,
+    "answer": "If your loss was simply a \"bad trade\" because the market moved, Libra Bank will not usually compensate market losses — the bank's complaints process only covers problems with products or services the bank actually provided, or where the bank made an error (for example execution errors, platform outages, incorrect information or unsuitable advice) [2]. A complaint must be an expression of dissatisfaction where you expect a remedy (for example: “I believe this trade was wrongly executed, please investigate/refund”) [3]. Where the issue is about how the trade was sold or advised, the bank can log that under mis‑selling/advice and investigate; where the issue is about something the bank does not provide, the bank will not investigate it [1][2].\n\nIf you want the bank to consider compensation, you should:\n- Describe exactly what happened (time, asset, order details, screenshots, why you think the bank/system was at fault). That shows it is a complaint under the bank’s definitions [3].\n- Submit that as a formal complaint to Libra Bank’s complaints team so they can investigate whether there was an execution error, system failure, mis‑advice or other bank fault that could lead to compensation [1][2].\n\nThe retrieved policy passages do not include the bank’s specific complaints contact details or the exact response times, nor do they name the regulator or give the full escalation contacts. They do say that if you are not satisfied with the bank’s response you should follow the internal escalation steps in order before going to the regulator [4]. \n\nNext step for you: use Libra Bank’s published complaints channel (the complaints page on their website, the secure message in your online account, calling the complaints number shown on your statements, or visiting a branch) to submit the full complaint with evidence. Check that same complaints page or your complaint acknowledgement for the bank’s stated response timeframe and the internal escalation route if you remain unhappy.",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.5972,
+        "index": 4
+      },
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.586,
+        "index": 0
+      },
+      {
+        "source": "complaints-overview",
+        "score": 0.584,
+        "index": 0
+      },
+      {
+        "source": "complaints-escalation-procedure",
+        "score": 0.5575,
+        "index": 0
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 928,
+      "completion_tokens": 1421
+    }
+  },
+  {
+    "id": "C3",
+    "question": "What is the compensation cap if my complaint about my Libra Bank stock brokerage account is upheld?",
+    "status_code": 200,
+    "answer": "If your complaint is upheld, Libra Bank will reimburse your documented financial loss in full and add a goodwill payment equal to 3% of that documented loss — that goodwill uplift is capped at 5,000 lei per complaint [1].\n\nThat means the documented loss is refunded without a stated cap in these passages, and the extra 3% payment cannot exceed 5,000 lei [1].\n\nThe retrieved passages do not include the bank’s complaints contact details. To progress this, raise or follow up your complaint with Libra Bank’s complaints team through the usual channel you use (branch, phone or online). If you haven’t received a final written decision within 45 calendar days from the date the complaint was logged, you may refer the unresolved complaint to CSALB (the Financial Consumer Ombudsman); follow the escalation stages in order rather than going straight to the regulator [2][4].",
+    "provider": "azure",
+    "model": "gpt-5-mini",
+    "dropped_below_threshold": 0,
+    "retrieved": [
+      {
+        "source": "complaints-goodwill-amounts",
+        "score": 0.5772,
+        "index": 2
+      },
+      {
+        "source": "complaints-escalation-procedure",
+        "score": 0.5728,
+        "index": 0
+      },
+      {
+        "source": "complaints-out-of-scope",
+        "score": 0.5712,
+        "index": 4
+      },
+      {
+        "source": "complaints-ombudsman-2025",
+        "score": 0.5498,
+        "index": 0
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 901,
+      "completion_tokens": 1340
+    }
+  }
+]
