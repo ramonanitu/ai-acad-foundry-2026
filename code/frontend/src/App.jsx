@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
+import { IconChat, IconChevron, IconMoon, IconSun } from './components'
 import Agents from './views/Agents'
 import Chat from './views/Chat'
 import Knowledge from './views/Knowledge'
@@ -58,12 +59,12 @@ export default function App() {
 
         <div style={{ marginTop: '.6rem' }}>
           <button className={`nav-item hero ${view === PRIMARY.id ? 'active' : ''}`} onClick={() => setView(PRIMARY.id)}>
-            💬 {PRIMARY.label}
+            <IconChat /> {PRIMARY.label}
           </button>
         </div>
 
         <button className={`dev-toggle ${devOpen ? 'open' : ''}`} onClick={() => setDevOpen((o) => !o)}>
-          <span className="chev">›</span> Developer tools
+          <IconChevron className="chev" /> Developer tools
         </button>
         {devOpen && (
           <div className="nav-secondary">
@@ -92,7 +93,7 @@ export default function App() {
             </div>
           )}
           <button className="btn btn-outline btn-sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-            ◐ {theme === 'dark' ? 'light' : 'dark'}
+            {theme === 'dark' ? <IconSun /> : <IconMoon />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </button>
         </div>
       </aside>

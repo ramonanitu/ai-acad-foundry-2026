@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { Callout, RunsOnBadge } from '../components'
+import { startRecording } from '../audio'
+import { Callout, IconMic, IconPause, IconSettings, IconStop, IconTrash, IconVolume, Switch } from '../components'
 
 const PROMPTS = [
   'My card got frozen — what do I do?',
@@ -8,18 +9,31 @@ const PROMPTS = [
   'What happens if I break a term deposit early?',
 ]
 
+// Tailored example questions per persona, keyed by the persona's file name (Persona.name).
+// Personas without an entry here fall back to the generic PROMPTS above.
+const AGENT_PROMPTS = {
+  'ramona-nitu-agent': [
+    "I was charged a fee I don't think is fair — can someone review it?",
+    "My complaint from last month still hasn't been resolved.",
+    'A branch employee gave me the wrong information and it cost me money.',
+  ],
+}
+
 export default function Chat({ agents, hostedOnly = [], foundry }) {
   const [messages, setMessages] = useState([])
   const [question, setQuestion] = useState('')
   const [agent, setAgent] = useState('default')
   const [useRag, setUseRag] = useState(true)
   const [factCheck, setFactCheck] = useState(false)
-  const [mode, setMode] = useState('local')
+  const [mode, setMode] = useState('foundry')
   const [topK, setTopK] = useState(3)
   const [busy, setBusy] = useState(false)
   const [audioState, setAudioState] = useState({})   // { [messageIndex]: { status, url, playing, error } }
+  const [micStatus, setMicStatus] = useState('idle')  // idle | recording | transcribing | error
+  const [micError, setMicError] = useState(null)
   const endRef = useRef(null)
   const audioRef = useRef(null)
+  const recorderRef = useRef(null)
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, busy])
 
@@ -96,6 +110,34 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
     }
   }
 
+  // Mic -> WAV -> /tools/transcribe -> dropped into the composer, never auto-sent, so a
+  // misheard word can be fixed before it goes to the agent.
+  async function toggleMic() {
+    if (micStatus === 'recording') {
+      setMicStatus('transcribing')
+      try {
+        const wav = await recorderRef.current.stop()
+        recorderRef.current = null
+        const file = new File([wav], 'question.wav', { type: 'audio/wav' })
+        const result = await api.transcribe(file)
+        setQuestion((q) => (q.trim() ? `${q.trim()} ${result.text}` : result.text))
+        setMicStatus('idle')
+      } catch (e) {
+        setMicError(e.message)
+        setMicStatus('error')
+      }
+      return
+    }
+    setMicError(null)
+    try {
+      recorderRef.current = await startRecording()
+      setMicStatus('recording')
+    } catch (e) {
+      setMicError(e.message || 'Microphone access was denied.')
+      setMicStatus('error')
+    }
+  }
+
   const all = [...agents, ...hostedOnly]
   const current = all.find((a) => a.name === agent)
 
@@ -122,45 +164,44 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
 
   return (
     <div className="chat-wrap">
-      <div className="chat-bar">
-        <select value={agent} onChange={(e) => setAgent(e.target.value)} title="Which persona answers">
-          {agents.map((a) => <option key={a.name} value={a.name}>{a.display_name}</option>)}
-          {hostedOnly.length > 0 && (
-            <optgroup label="hosted in Foundry only">
-              {hostedOnly.map((a) => <option key={a.name} value={a.name}>{a.display_name}</option>)}
-            </optgroup>
-          )}
-        </select>
-        {current && <RunsOnBadge runsOn={current.runs_on} reason={foundry?.reason} />}
+      <div className="chat-topbar">
+        <div className="chat-topbar-group">
+          <select value={agent} onChange={(e) => setAgent(e.target.value)} title="Choose which persona answers">
+            {agents.map((a) => <option key={a.name} value={a.name}>{a.display_name}</option>)}
+            {hostedOnly.length > 0 && (
+              <optgroup label="hosted in Foundry only">
+                {hostedOnly.map((a) => <option key={a.name} value={a.name}>{a.display_name}</option>)}
+              </optgroup>
+            )}
+          </select>
+        </div>
 
-        <label className="check" style={{ margin: 0 }} title="Retrieve from your documents and ground the answer">
-          <input type="checkbox" checked={useRag} onChange={(e) => setUseRag(e.target.checked)} />
-          use my documents
-        </label>
+        <Switch checked={useRag} onChange={(e) => setUseRag(e.target.checked)}
+                label="Search my documents"
+                title="Ground the answer in the documents you've ingested and show the sources used. Turn off to compare against the model's general knowledge alone." />
 
         <span className="grow-gap" />
 
         {foundryReachable === false && (
-          <span className="badge muted" title={foundryWhy}>hosted agents off — key auth</span>
+          <span className="badge muted" title={foundryWhy}>Foundry unavailable — key auth</span>
         )}
 
         <details className="advanced">
-          <summary className="btn btn-outline btn-sm">⚙ advanced</summary>
+          <summary className="btn btn-outline btn-sm"><IconSettings /> Settings</summary>
           <div className="advanced-panel">
-            <label className="check" title="After answering, verify the answer against the open web and attach a verdict">
-              <input type="checkbox" checked={factCheck} onChange={(e) => setFactCheck(e.target.checked)} />
-              fact-check answers
-            </label>
+            <Switch checked={factCheck} onChange={(e) => setFactCheck(e.target.checked)}
+                    label="Fact-check answers"
+                    title="After answering, verify the answer against the open web and attach a verdict" />
             <div>
               <label>Where the agent runs</label>
-              <select value={mode} onChange={(e) => setMode(e.target.value)} title="Where the loop executes">
+              <select value={mode} onChange={(e) => setMode(e.target.value)} title="Where the agent loop executes">
+                <option value="foundry" disabled={foundryBlocked} title={foundryBlocked ? foundryWhy : ''}>
+                  Run in Azure AI Foundry{foundryReachable === false ? ' — no identity'
+                                : foundryBlocked ? ' — not deployed' : ''}
+                </option>
                 <option value="local" disabled={localImpossible}
                         title={localImpossible ? 'This agent has no local JSON file' : ''}>
-                  local agent
-                </option>
-                <option value="foundry" disabled={foundryBlocked} title={foundryBlocked ? foundryWhy : ''}>
-                  Foundry agent{foundryReachable === false ? ' — no identity'
-                                : foundryBlocked ? ' — not deployed' : ''}
+                  Run locally
                 </option>
               </select>
             </div>
@@ -172,21 +213,23 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
           </div>
         </details>
 
-        <button className="btn btn-outline btn-sm" onClick={() => setMessages([])} disabled={!messages.length}>clear</button>
+        <button className="btn btn-outline btn-sm" onClick={() => setMessages([])} disabled={!messages.length}>
+          <IconTrash /> Clear chat
+        </button>
       </div>
 
       <div className="msgs">
         {messages.length === 0 && (
           <div className="card welcome">
             <span className="mark-lg">L</span>
-            <h3>Ask Libra Assist</h3>
+            <h3>Ask {current?.display_name || 'Libra Assist'}</h3>
             <p className="muted" style={{ margin: 0 }}>
-              Questions about cards, mortgages, or deposits are answered from the documents you've
-              ingested, with the exact sources and scores shown underneath. Switch the persona above
-              to see the tone change, or turn off "use my documents" to compare against the model alone.
+              {current?.description ||
+                "Questions about cards, mortgages, or deposits are answered from the documents you've " +
+                'ingested, with the exact sources and scores shown underneath.'}
             </p>
             <div className="chips">
-              {PROMPTS.map((p) => <button key={p} className="chip" onClick={() => send(p)}>{p}</button>)}
+              {(AGENT_PROMPTS[agent] || PROMPTS).map((p) => <button key={p} className="chip" onClick={() => send(p)}>{p}</button>)}
             </div>
           </div>
         )}
@@ -220,7 +263,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                         disabled={audioState[i]?.status === 'loading'}
                         title="Listen to this answer (Azure AI Speech)">
                   {audioState[i]?.status === 'loading' ? <span className="spin" />
-                    : audioState[i]?.playing ? '⏸ pause' : '🔊 listen'}
+                    : audioState[i]?.playing ? (<><IconPause /> Pause</>) : (<><IconVolume /> Listen</>)}
                 </button>
               </div>
               {audioState[i]?.status === 'error' && (
@@ -308,7 +351,19 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
         <div ref={endRef} />
       </div>
 
+      {micStatus === 'error' && (
+        <p className="faint" style={{ margin: '0 0 .4rem', color: 'var(--c-crimson-ink)' }}>
+          Couldn't use the microphone: {micError}
+        </p>
+      )}
       <div className="composer">
+        <button className={`btn btn-outline ${micStatus === 'recording' ? 'btn-recording' : ''}`}
+                onClick={toggleMic}
+                disabled={busy || micStatus === 'transcribing'}
+                title={micStatus === 'recording' ? 'Stop and transcribe' : 'Ask by speaking (Azure AI Speech)'}>
+          {micStatus === 'transcribing' ? <span className="spin" />
+            : micStatus === 'recording' ? <IconStop /> : <IconMic />}
+        </button>
         <textarea value={question} placeholder="Ask Libra Assist…  (Enter to send, Shift+Enter for a new line)"
                   onChange={(e) => setQuestion(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />

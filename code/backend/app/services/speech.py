@@ -25,8 +25,8 @@ class SpeechUnavailable(Exception):
     """Raised with instructions when the Speech resource is not configured."""
 
 
-def _credentials() -> tuple[str, str]:
-    """Key and region for Speech.
+def _tts_credentials() -> tuple[str, str]:
+    """Key and region for text-to-speech.
 
     A Foundry resource of kind AIServices is *multi-service*: the same key and
     region already used for chat and embeddings also open Speech. So if the
@@ -41,37 +41,68 @@ def _credentials() -> tuple[str, str]:
     region = settings.azure_speech_region or settings.azure_location
     if not key or not region:
         raise SpeechUnavailable(
-            "Speech is not configured. Either set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION "
-            "for a dedicated Speech resource, or — since a Foundry AIServices resource "
-            "includes Speech — set AZURE_AI_API_KEY and AZURE_LOCATION and it will be used. "
-            "See the Session 4 page, 'Speech: giving the assistant a voice'."
+            "Text-to-speech is not configured. Either set AZURE_SPEECH_KEY and "
+            "AZURE_SPEECH_REGION for a dedicated Speech resource, or — since a Foundry "
+            "AIServices resource includes Speech — set AZURE_AI_API_KEY and AZURE_LOCATION "
+            "and it will be used. See the Session 4 page, 'Speech: giving the assistant a voice'."
+        )
+    return key, region
+
+
+def _stt_credentials() -> tuple[str, str]:
+    """Key and region for speech-to-text.
+
+    Recognition often lives on its own resource — a different key from the one used
+    for synthesis. AZURE_SPEECH_STT_KEY/AZURE_SPEECH_STT_REGION win when set; empty
+    falls back to the text-to-speech Speech resource, then to Foundry, same as above.
+    """
+    key = settings.azure_speech_stt_key or settings.azure_speech_key or settings.azure_ai_api_key
+    region = settings.azure_speech_stt_region or settings.azure_speech_region or settings.azure_location
+    if not key or not region:
+        raise SpeechUnavailable(
+            "Speech-to-text is not configured. Set AZURE_SPEECH_STT_KEY and "
+            "AZURE_SPEECH_STT_REGION for a dedicated recognition resource, or fall back to "
+            "AZURE_SPEECH_KEY/AZURE_SPEECH_REGION, or to AZURE_AI_API_KEY/AZURE_LOCATION "
+            "from the Foundry AIServices resource."
         )
     return key, region
 
 
 def describe() -> dict:
     """What /health reports, without raising when nothing is configured."""
+    result: dict = {"voice": settings.azure_speech_voice}
+
     try:
-        key, region = _credentials()
+        _, tts_region = _tts_credentials()
     except SpeechUnavailable:
-        return {"configured": False, "region": None, "source": None,
-                "voice": settings.azure_speech_voice}
-    dedicated = bool(settings.azure_speech_key)
-    return {
-        "configured": True,
-        "region": region,
-        "source": "dedicated Speech resource" if dedicated else "Foundry AIServices resource",
-        "voice": settings.azure_speech_voice,
-    }
+        result["text_to_speech"] = {"configured": False, "region": None, "source": None}
+    else:
+        result["text_to_speech"] = {
+            "configured": True, "region": tts_region,
+            "source": "dedicated Speech resource" if settings.azure_speech_key
+                      else "Foundry AIServices resource",
+        }
 
+    try:
+        _, stt_region = _stt_credentials()
+    except SpeechUnavailable:
+        result["speech_to_text"] = {"configured": False, "region": None, "source": None}
+    else:
+        result["speech_to_text"] = {
+            "configured": True, "region": stt_region,
+            "source": "dedicated STT resource" if settings.azure_speech_stt_key
+                      else "text-to-speech Speech resource" if settings.azure_speech_key
+                      else "Foundry AIServices resource",
+        }
 
-def _require_config() -> None:
-    _credentials()
+    # Kept for callers that only checked a single flag before STT/TTS had separate keys.
+    result["configured"] = result["text_to_speech"]["configured"] or result["speech_to_text"]["configured"]
+    return result
 
 
 def synthesize(text: str, voice: str | None = None) -> bytes:
     """Text -> spoken audio (WAV bytes). The request body is SSML."""
-    key, region = _credentials()
+    key, region = _tts_credentials()
     voice = voice or settings.azure_speech_voice
     locale = "-".join(voice.split("-")[:2]) if "-" in voice else "en-US"
 
@@ -102,7 +133,7 @@ def synthesize(text: str, voice: str | None = None) -> bytes:
 
 def transcribe(audio: bytes, content_type: str = "audio/wav", language: str | None = None) -> dict:
     """Spoken audio -> text. Short-audio endpoint: up to about 60 seconds."""
-    key, region = _credentials()
+    key, region = _stt_credentials()
     language = language or settings.azure_speech_language
 
     url = (

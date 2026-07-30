@@ -18,7 +18,12 @@ export default function Status({ health, reload, azure, reloadAzure }) {
     ['Embeddings', `${health.embeddings.provider} · ${health.embeddings.model}`, true],
     ['Agent mode', `${health.agents?.mode} · default “${health.agents?.default_persona}”`, true],
     ['Personas', (health.agents?.available || []).join(', ') || '—', true],
-    ['Speech', health.speech?.configured ? `configured · ${health.speech.region}` : 'not configured', !!health.speech?.configured],
+    ['Text-to-speech', health.speech?.text_to_speech?.configured
+      ? `configured · ${health.speech.text_to_speech.region} · ${health.speech.text_to_speech.source}`
+      : 'not configured', !!health.speech?.text_to_speech?.configured],
+    ['Speech-to-text', health.speech?.speech_to_text?.configured
+      ? `configured · ${health.speech.speech_to_text.region} · ${health.speech.speech_to_text.source}`
+      : 'not configured', !!health.speech?.speech_to_text?.configured],
   ] : []
 
   return (

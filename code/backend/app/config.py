@@ -48,10 +48,15 @@ class Settings(BaseSettings):
     fact_check_pages: int = 3                # how many results to actually read
 
     # --- Azure AI Speech (falls back to the Foundry resource when unset) -------
+    # Text-to-speech. A separate Speech-to-text resource/key is common — see below.
     azure_speech_key: str = ""
     azure_speech_region: str = ""           # e.g. swedencentral
     azure_speech_voice: str = "en-US-AvaMultilingualNeural"
     azure_speech_language: str = "en-US"
+    # Speech-to-text. Empty -> falls back to the text-to-speech key/region above,
+    # then to the Foundry resource — same three-tier fallback, one step earlier.
+    azure_speech_stt_key: str = ""
+    azure_speech_stt_region: str = ""
 
     # --- environment coordinates (used by scripts/, not by the app itself) ----
     azure_resource_group: str = ""
